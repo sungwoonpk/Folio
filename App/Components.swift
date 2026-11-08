@@ -192,7 +192,9 @@ struct FolderCard: View {
                 .lineLimit(1)
             Spacer(minLength: 8)
             if let count {
-                Text("\(count)").font(Theme.meta).foregroundStyle(.secondary)
+                Text("\(count)")
+                    .font(.system(.body, design: .monospaced))
+                    .foregroundStyle(.secondary)
             }
             Image(systemName: "chevron.right")
                 .font(.footnote.weight(.semibold))
