@@ -33,6 +33,12 @@ final class AppModel {
     var selectedNoteId: UUID?
     var query = ""
 
+    // Multi-select. Notes and trash items share one set, folders have their own.
+    var selectingNotes = false
+    var pickedNotes: Set<UUID> = []
+    var selectingFolders = false
+    var pickedFolders: Set<UUID> = []
+
     init() {
         let database: AppDatabase
         do {
@@ -179,6 +185,100 @@ final class AppModel {
 
     func emptyTrash() async {
         try? await store.emptyTrash()
+        await reloadNotes()
+    }
+
+    // MARK: Multi-select
+
+    func endNoteSelection() {
+        selectingNotes = false
+        pickedNotes = []
+    }
+
+    func endFolderSelection() {
+        selectingFolders = false
+        pickedFolders = []
+    }
+
+    func toggleNote(_ id: UUID) {
+        if pickedNotes.contains(id) { pickedNotes.remove(id) } else { pickedNotes.insert(id) }
+    }
+
+    func toggleFolder(_ id: UUID) {
+        if pickedFolders.contains(id) { pickedFolders.remove(id) } else { pickedFolders.insert(id) }
+    }
+
+    /// Everything selectable on the current screen: notes, or trash folders and notes.
+    private var selectableNoteIDs: Set<UUID> {
+        sidebar == .trash
+            ? Set(trash.folders.map(\.id)).union(trash.notes.map(\.id))
+            : Set(notes.map(\.id))
+    }
+
+    var allNotesPicked: Bool {
+        let all = selectableNoteIDs
+        return !all.isEmpty && pickedNotes == all
+    }
+
+    func toggleAllNotes() {
+        pickedNotes = allNotesPicked ? [] : selectableNoteIDs
+    }
+
+    func toggleAllFolders() {
+        let all = Set(folders.map(\.id))
+        pickedFolders = pickedFolders == all ? [] : all
+    }
+
+    func trashPickedNotes() async {
+        for id in pickedNotes {
+            try? await store.trashNote(id: id)
+            if selectedNoteId == id { selectedNoteId = nil }
+        }
+        endNoteSelection()
+        await reloadNotes()
+    }
+
+    func movePickedNotes(to folderId: UUID?) async {
+        for id in pickedNotes { try? await store.moveNote(id: id, to: folderId) }
+        endNoteSelection()
+        await reloadNotes()
+    }
+
+    func trashPickedFolders() async {
+        for id in pickedFolders {
+            try? await store.trashFolder(id: id)
+            if let current = currentFolderId, current == id || isDescendant(current, of: id) {
+                sidebar = .all
+                selectedNoteId = nil
+            }
+        }
+        endFolderSelection()
+        await reloadAll()
+    }
+
+    func restorePicked() async {
+        let folderIds = Set(trash.folders.map(\.id))
+        for id in pickedNotes {
+            if folderIds.contains(id) {
+                try? await store.restoreFolder(id: id)
+            } else {
+                try? await store.restoreNote(id: id)
+            }
+        }
+        endNoteSelection()
+        await reloadAll()
+    }
+
+    func purgePicked() async {
+        let folderIds = Set(trash.folders.map(\.id))
+        for id in pickedNotes {
+            if folderIds.contains(id) {
+                try? await store.purgeFolder(id: id)
+            } else {
+                try? await store.purgeNote(id: id)
+            }
+        }
+        endNoteSelection()
         await reloadNotes()
     }
 

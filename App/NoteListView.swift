@@ -6,26 +6,23 @@ struct NoteListView: View {
     @Environment(Nav.self) private var nav
     @Environment(\.horizontalSizeClass) private var sizeClass
     @State private var moving: Note?
+    @State private var movingPicked = false
     @State private var confirmEmpty = false
+    @State private var confirmPurge = false
 
     private var isTrash: Bool { model.sidebar == .trash }
+    private var nothingPicked: Bool { model.pickedNotes.isEmpty }
+    private var trashIsEmpty: Bool { model.trash.folders.isEmpty && model.trash.notes.isEmpty }
+
+    private var headerTitle: String {
+        guard model.selectingNotes else { return model.title }
+        return nothingPicked ? "Select" : "\(model.pickedNotes.count) Selected"
+    }
 
     var body: some View {
         @Bindable var model = model
         VStack(spacing: 0) {
-            Header(title: model.title, leading: leading) {
-                if isTrash {
-                    Button("Empty") { confirmEmpty = true }
-                        .disabled(model.trash.folders.isEmpty && model.trash.notes.isEmpty)
-                } else {
-                    IconButton(systemName: "square.and.pencil", label: "New Note") {
-                        Task {
-                            await model.createNote()
-                            nav.compactColumn = .detail
-                        }
-                    }
-                }
-            }
+            Header(title: headerTitle, leading: leading) { actions }
             if !isTrash { SearchField(text: $model.query) }
 
             if isTrash { TrashView() } else { list }
@@ -40,9 +37,55 @@ struct NoteListView: View {
         .confirmationDialog("Delete everything in Trash?", isPresented: $confirmEmpty, titleVisibility: .visible) {
             Button("Delete All", role: .destructive) { Task { await model.emptyTrash() } }
         }
+        .confirmationDialog(
+            "Delete \(model.pickedNotes.count) forever?", isPresented: $confirmPurge, titleVisibility: .visible
+        ) {
+            Button("Delete", role: .destructive) { Task { await model.purgePicked() } }
+        }
         .sheet(item: $moving) { note in
             MovePicker(title: "Move", current: note.folderId) { target in
                 Task { await model.moveNote(note.id, to: target) }
+            }
+        }
+        .sheet(isPresented: $movingPicked) {
+            MovePicker(title: "Move", current: nil) { target in
+                Task { await model.movePickedNotes(to: target) }
+            }
+        }
+    }
+
+    /// All header actions sit together on the right.
+    @ViewBuilder
+    private var actions: some View {
+        if model.selectingNotes {
+            Button(model.allNotesPicked ? "None" : "All") { model.toggleAllNotes() }
+            if isTrash {
+                IconButton(systemName: "arrow.uturn.backward", label: "Restore") {
+                    Task { await model.restorePicked() }
+                }
+                .disabled(nothingPicked)
+                IconButton(systemName: "trash", label: "Delete") { confirmPurge = true }
+                    .disabled(nothingPicked)
+            } else {
+                IconButton(systemName: "folder", label: "Move") { movingPicked = true }
+                    .disabled(nothingPicked)
+                IconButton(systemName: "trash", label: "Delete") {
+                    Task { await model.trashPickedNotes() }
+                }
+                .disabled(nothingPicked)
+            }
+            Button("Done") { model.endNoteSelection() }
+        } else if isTrash {
+            Button("Select") { model.selectingNotes = true }.disabled(trashIsEmpty)
+            Button("Empty") { confirmEmpty = true }.disabled(trashIsEmpty)
+        } else {
+            IconButton(systemName: "checkmark.circle", label: "Select") { model.selectingNotes = true }
+                .disabled(model.notes.isEmpty)
+            IconButton(systemName: "square.and.pencil", label: "New Note") {
+                Task {
+                    await model.createNote()
+                    nav.compactColumn = .detail
+                }
             }
         }
     }
@@ -50,7 +93,7 @@ struct NoteListView: View {
     /// Back on iPhone, sidebar toggle on iPad.
     private var leading: (icon: String, label: String, action: () -> Void) {
         if sizeClass == .compact {
-            return ("chevron.left", "Folders", { nav.compactColumn = .sidebar })
+            return ("chevron.left", "Home", { nav.compactColumn = .sidebar })
         }
         return ("sidebar.left", "Sidebar", {
             nav.columns = nav.columns == .all ? .doubleColumn : .all
@@ -60,17 +103,26 @@ struct NoteListView: View {
     private var list: some View {
         List {
             ForEach(model.notes) { note in
-                let selected = model.selectedNoteId == note.id
+                let open = !model.selectingNotes && model.selectedNoteId == note.id
                 Button {
-                    model.selectedNoteId = note.id
-                    nav.compactColumn = .detail
+                    if model.selectingNotes {
+                        model.toggleNote(note.id)
+                    } else {
+                        model.selectedNoteId = note.id
+                        nav.compactColumn = .detail
+                    }
                 } label: {
-                    NoteRow(note: note)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .contentShape(Rectangle())
+                    HStack(spacing: 10) {
+                        if model.selectingNotes {
+                            SelectMark(picked: model.pickedNotes.contains(note.id))
+                        }
+                        NoteRow(note: note)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .listRowBackground(selected ? Theme.accent.opacity(0.12) : Color.clear)
+                .listRowBackground(open ? Theme.accent.opacity(0.12) : Color.clear)
                 .swipeActions(edge: .trailing) {
                     Button("Delete", systemImage: "trash", role: .destructive) {
                         Task { await model.trashNote(note.id) }

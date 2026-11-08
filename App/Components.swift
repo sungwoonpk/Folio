@@ -12,6 +12,7 @@ struct IconButton: View {
     let systemName: String
     var label: String = ""
     let action: () -> Void
+    @Environment(\.isEnabled) private var isEnabled
 
     var body: some View {
         Button(action: action) {
@@ -21,7 +22,20 @@ struct IconButton: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .opacity(isEnabled ? 1 : 0.3)
         .accessibilityLabel(label.isEmpty ? systemName : label)
+    }
+}
+
+/// Round check shown in front of rows while selecting.
+struct SelectMark: View {
+    let picked: Bool
+
+    var body: some View {
+        Image(systemName: picked ? "checkmark.circle.fill" : "circle")
+            .font(.system(size: 20))
+            .foregroundStyle(picked ? Theme.accent : Color.secondary)
+            .frame(width: 26)
     }
 }
 
