@@ -1,6 +1,33 @@
 import NoteCore
 import SwiftUI
 
+/// Accepts dragged notes and folders and moves them into `folderId` (nil = top level).
+private struct ItemDrop: ViewModifier {
+    let folderId: UUID?
+    let key: String
+    @Binding var highlight: String?
+    @Environment(AppModel.self) private var model
+
+    func body(content: Content) -> some View {
+        content.dropDestination(for: ItemRef.self) { items, _ in
+            Task { await model.drop(items, onto: folderId) }
+            return true
+        } isTargeted: { targeted in
+            if targeted {
+                highlight = key
+            } else if highlight == key {
+                highlight = nil
+            }
+        }
+    }
+}
+
+private extension View {
+    func acceptsItems(into folderId: UUID?, key: String, highlight: Binding<String?>) -> some View {
+        modifier(ItemDrop(folderId: folderId, key: key, highlight: highlight))
+    }
+}
+
 /// Home: folders on top, notes without a folder below.
 struct HomeView: View {
     @Environment(AppModel.self) private var model
@@ -14,6 +41,8 @@ struct HomeView: View {
     @State private var movingFolder: Folder?
     @State private var movingNote: Note?
     @State private var movingPicked = false
+    /// Which drop target is under the finger: "folders", "notes", or a folder id.
+    @State private var dropHighlight: String?
 
     private var headerTitle: String {
         guard model.selecting else { return "Note AI" }
@@ -108,13 +137,16 @@ struct HomeView: View {
                 }
                 trashRow
             } header: {
-                sectionHeader("FOLDERS")
+                // Drop here to take a folder or note out of its folder.
+                sectionHeader("FOLDERS", key: "folders")
+                    .acceptsItems(into: nil, key: "folders", highlight: $dropHighlight)
             }
 
             Section {
                 ForEach(model.looseNotes) { note in noteRow(note, depth: 0) }
             } header: {
-                sectionHeader("NOTES")
+                sectionHeader("NOTES", key: "notes")
+                    .acceptsItems(into: nil, key: "notes", highlight: $dropHighlight)
             }
         }
         .listStyle(.plain)
@@ -143,8 +175,15 @@ struct HomeView: View {
         }
     }
 
-    private func sectionHeader(_ title: String) -> some View {
-        Text(title).font(Theme.meta).foregroundStyle(.secondary)
+    private func sectionHeader(_ title: String, key: String) -> some View {
+        let targeted = dropHighlight == key
+        return Text(title)
+            .font(Theme.meta)
+            .foregroundStyle(targeted ? Theme.accent : Color.secondary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.vertical, 6)
+            .background(targeted ? Theme.accent.opacity(0.15) : Color.clear)
+            .contentShape(Rectangle())
     }
 
     // MARK: Rows
@@ -178,6 +217,9 @@ struct HomeView: View {
         }
         .buttonStyle(.plain)
         .listRowSeparator(.hidden)
+        .listRowBackground(dropHighlight == folder.id.uuidString ? Theme.accent.opacity(0.18) : Color.clear)
+        .draggable(ItemRef(kind: .folder, id: folder.id))
+        .acceptsItems(into: folder.id, key: folder.id.uuidString, highlight: $dropHighlight)
         .swipeActions(edge: .trailing) {
             Button("Delete", systemImage: "trash", role: .destructive) {
                 Task { await model.trashFolder(folder.id) }
@@ -224,6 +266,9 @@ struct HomeView: View {
         }
         .buttonStyle(.plain)
         .listRowBackground(open ? Theme.accent.opacity(0.12) : Color.clear)
+        .draggable(ItemRef(kind: .note, id: note.id))
+        // Dropping on a note lands in that note's folder (or the top level).
+        .acceptsItems(into: note.folderId, key: "note-\(note.id.uuidString)", highlight: $dropHighlight)
         .swipeActions(edge: .trailing) {
             Button("Delete", systemImage: "trash", role: .destructive) {
                 Task { await model.trashNote(note.id) }
