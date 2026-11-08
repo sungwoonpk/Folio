@@ -103,7 +103,7 @@ struct NoteListView: View {
                 if model.query.isEmpty {
                     ContentUnavailableView("No Notes", systemImage: "note.text")
                 } else {
-                    ContentUnavailableView.search(text: model.query)
+                    ContentUnavailableView { Label("No Results", systemImage: "magnifyingglass") }
                 }
             }
         }
