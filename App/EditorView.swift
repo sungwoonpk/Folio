@@ -13,16 +13,12 @@ struct EditorView: View {
     @State private var lastSaved = ""
     @State private var loaded = false
     @State private var saveTask: Task<Void, Never>?
-    @FocusState private var focused: Bool
+    @State private var autofocus = false
 
     var body: some View {
         VStack(spacing: 0) {
             Header(title: "", leading: leading) { EmptyView() }
-            TextEditor(text: $text)
-                .focused($focused)
-                .font(Theme.serifBody)
-                .scrollContentBackground(.hidden)
-                .padding(.horizontal, 12)
+            NoteTextView(text: $text, autofocus: autofocus)
         }
         .background(Theme.paper)
         .toolbar(.hidden, for: .navigationBar)
@@ -32,7 +28,7 @@ struct EditorView: View {
             lastSaved = joined
             text = joined
             loaded = true
-            if joined.isEmpty { focused = true }
+            autofocus = joined.isEmpty
         }
         .onChange(of: text) {
             guard loaded, text != lastSaved else { return }
