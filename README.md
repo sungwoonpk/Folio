@@ -1,5 +1,7 @@
 # Note
 
+[![CI](https://github.com/sungwoonpk/Note-App/actions/workflows/ci.yml/badge.svg)](https://github.com/sungwoonpk/Note-App/actions/workflows/ci.yml)
+
 A fast, quiet notes app for iPhone. Everything stays on the phone. Built with SwiftUI and SQLite.
 
 ## Why
@@ -69,7 +71,8 @@ Pick an iPhone simulator and press Run. The only dependency, [GRDB](https://gith
 ## Tests
 
 ```bash
-# Logic: storage, search, trash, documents. No simulator needed
+# Logic: storage, search, trash, documents. No simulator needed.
+# GitHub Actions runs this and a simulator build on every push and pull request
 cd Packages/NoteCore && swift test
 
 # The real app, driven through its screens
