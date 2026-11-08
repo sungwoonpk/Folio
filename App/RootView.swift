@@ -14,7 +14,6 @@ struct RootView: View {
                     .navigationDestination(for: Route.self) { route in
                         switch route {
                         case .folder(let id): FolderScreen(folderId: id)
-                        case .trash: TrashScreen()
                         }
                     }
             }

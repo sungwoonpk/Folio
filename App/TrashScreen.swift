@@ -3,7 +3,7 @@ import SwiftUI
 
 struct TrashScreen: View {
     @Environment(AppModel.self) private var model
-    @Environment(Nav.self) private var nav
+    @Environment(\.dismiss) private var dismiss
 
     @State private var selecting = false
     @State private var picked: Set<UUID> = []
@@ -19,7 +19,7 @@ struct TrashScreen: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            Header(title: title, leading: ("chevron.left", "Home", { nav.back() })) { actions }
+            Header(title: title, leading: ("chevron.left", "Back", { dismiss() })) { actions }
             list
         }
         .background(Theme.paper)

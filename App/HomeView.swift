@@ -102,8 +102,6 @@ struct HomeView: View {
                         Task { await model.moveFolders(in: nil, from: source, to: destination) }
                     }
             }
-            // Trash stays out of the way, at the very bottom.
-            Section { trashRow }
         }
         .environment(\.editMode, .constant(model.selecting ? .active : .inactive))
         .listStyle(.plain)
@@ -195,16 +193,5 @@ struct HomeView: View {
                 Task { await model.trashFolder(folder.id) }
             }
         }
-    }
-
-    private var trashRow: some View {
-        let count = model.trash.folders.count + model.trash.notes.count
-        return Button {
-            nav.path.append(.trash)
-        } label: {
-            FolderCard(title: "Trash", icon: "trash", count: count > 0 ? count : nil, muted: true)
-        }
-        .buttonStyle(.plain)
-        .cardRow()
     }
 }

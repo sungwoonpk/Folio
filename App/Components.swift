@@ -5,7 +5,6 @@ import SwiftUI
 enum Route: Hashable {
     /// A folder's contents. nil is "Notes", the notes that are not in any folder.
     case folder(UUID?)
-    case trash
 }
 
 /// Column navigation state. We draw our own headers, so we also drive back and sidebar toggles.
