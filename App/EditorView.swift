@@ -17,14 +17,7 @@ struct EditorView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            Header(title: "", leading: leading) {
-                IconButton(systemName: "trash", label: "Delete") {
-                    Task {
-                        await model.trashNote(noteId)
-                        nav.compactColumn = .content
-                    }
-                }
-            }
+            Header(title: "", leading: leading) { EmptyView() }
             TextEditor(text: $text)
                 .focused($focused)
                 .font(Theme.serifBody)
