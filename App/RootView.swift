@@ -2,7 +2,6 @@ import SwiftUI
 
 struct RootView: View {
     @Environment(AppModel.self) private var model
-    @AppStorage(SettingsKey.trashDays) private var trashDays = 30
     @State private var nav = Nav()
 
     var body: some View {
@@ -28,10 +27,7 @@ struct RootView: View {
         }
         .navigationSplitViewStyle(.balanced)
         .environment(nav)
-        .task {
-            await model.reloadAll()
-            await model.purgeExpiredTrash(days: trashDays)
-        }
+        .task { await model.reloadAll() }
         .onChange(of: model.sidebar) {
             model.selectedNoteId = nil
             model.query = ""

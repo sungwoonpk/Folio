@@ -18,7 +18,6 @@ struct NotesApp: App {
 
 enum SettingsKey {
     static let appearance = "appearance"
-    static let trashDays = "trashDays"
 }
 
 enum Appearance: String, CaseIterable, Identifiable {

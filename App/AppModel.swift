@@ -83,12 +83,6 @@ final class AppModel {
         }
     }
 
-    func purgeExpiredTrash(days: Int) async {
-        guard days > 0 else { return }
-        let cutoff = Date().addingTimeInterval(-Double(days) * 86_400)
-        try? await store.purgeTrash(olderThan: cutoff)
-    }
-
     // MARK: Folder actions
 
     func createFolder(name: String, parentId: UUID?) async {

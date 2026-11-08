@@ -3,7 +3,6 @@ import SwiftUI
 struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @AppStorage(SettingsKey.appearance) private var appearance = Appearance.system.rawValue
-    @AppStorage(SettingsKey.trashDays) private var trashDays = 30
 
     var body: some View {
         NavigationStack {
@@ -14,9 +13,6 @@ struct SettingsView: View {
                     }
                     .pickerStyle(.segmented)
                     .labelsHidden()
-                }
-                Section {
-                    Stepper("Trash: \(trashDays) days", value: $trashDays, in: 1...90)
                 }
             }
             .navigationTitle("Settings")
