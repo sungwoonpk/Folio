@@ -10,7 +10,8 @@ final class AppModel {
     var folders: [Folder] = []
     /// Every active note, or the search results while a query is typed.
     var notes: [Note] = []
-    var trash = TrashContents(folders: [], notes: [])
+    /// Recently Deleted: notes only, folders are never kept.
+    var deleted: [Note] = []
 
     var selectedNoteId: UUID?
     var query = ""
@@ -73,7 +74,7 @@ final class AppModel {
 
     func reloadAll() async {
         folders = (try? await store.folders()) ?? []
-        trash = (try? await store.trash()) ?? TrashContents(folders: [], notes: [])
+        deleted = (try? await store.deletedNotes()) ?? []
         await reloadNotes()
     }
 
@@ -101,7 +102,7 @@ final class AppModel {
     }
 
     func reloadTrash() async {
-        trash = (try? await store.trash()) ?? TrashContents(folders: [], notes: [])
+        deleted = (try? await store.deletedNotes()) ?? []
     }
 
     // MARK: Folder actions
@@ -148,8 +149,9 @@ final class AppModel {
         await reloadAll()
     }
 
-    func trashFolder(_ id: UUID) async {
-        try? await store.trashFolder(id: id)
+    /// Deletes the folder for good. Its notes go to Recently Deleted.
+    func deleteFolder(_ id: UUID) async {
+        try? await store.deleteFolder(id: id)
         await reloadAll()
     }
 
@@ -230,7 +232,7 @@ final class AppModel {
     }
 
     func trashPicked() async {
-        for id in pickedFolders { try? await store.trashFolder(id: id) }
+        for id in pickedFolders { try? await store.deleteFolder(id: id) }
         for id in pickedNotes { try? await store.trashNote(id: id) }
         endSelection()
         await reloadAll()
@@ -242,33 +244,16 @@ final class AppModel {
         await reloadAll()
     }
 
-    // MARK: Trash actions
+    // MARK: Recently Deleted actions
 
-    func restore(ids: Set<UUID>) async {
-        let folderIds = Set(trash.folders.map(\.id))
-        for id in ids {
-            if folderIds.contains(id) {
-                try? await store.restoreFolder(id: id)
-            } else {
-                // Bring the note's folder back first (no-op if it is not in trash).
-                if let folderId = trash.notes.first(where: { $0.id == id })?.folderId {
-                    try? await store.restoreFolder(id: folderId)
-                }
-                try? await store.restoreNote(id: id)
-            }
-        }
+    /// Brings deleted notes back into the folder the user picked.
+    func restore(ids: Set<UUID>, to folderId: UUID) async {
+        for id in ids { try? await store.restoreNote(id: id, to: folderId) }
         await reloadAll()
     }
 
     func purge(ids: Set<UUID>) async {
-        let folderIds = Set(trash.folders.map(\.id))
-        for id in ids {
-            if folderIds.contains(id) {
-                try? await store.purgeFolder(id: id)
-            } else {
-                try? await store.purgeNote(id: id)
-            }
-        }
+        for id in ids { try? await store.purgeNote(id: id) }
         await reloadTrash()
     }
 }
