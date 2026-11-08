@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 @main
 struct NotesApp: App {
@@ -41,5 +42,17 @@ enum Appearance: String, CaseIterable, Identifiable {
 }
 
 enum Theme {
-    static let accent = Color(red: 0.93, green: 0.69, blue: 0.0)
+    /// Vermilion.
+    static let accent = Color(red: 1.0, green: 0.35, blue: 0.21)
+
+    /// Warm paper in light mode, near-black in dark mode.
+    static let paper = Color(uiColor: UIColor { traits in
+        traits.userInterfaceStyle == .dark
+            ? UIColor(red: 0.07, green: 0.07, blue: 0.07, alpha: 1)
+            : UIColor(red: 0.97, green: 0.96, blue: 0.93, alpha: 1)
+    })
+
+    static let serifBody = Font.system(.body, design: .serif)
+    static let serifTitle = Font.system(.largeTitle, design: .serif, weight: .bold)
+    static let meta = Font.system(.caption, design: .monospaced)
 }

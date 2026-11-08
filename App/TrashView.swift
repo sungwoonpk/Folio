@@ -1,16 +1,17 @@
 import NoteCore
 import SwiftUI
 
+/// List only. The header and the empty-trash button live in NoteListView.
 struct TrashView: View {
     @Environment(AppModel.self) private var model
-    @State private var confirmEmpty = false
 
     var body: some View {
         List {
             if !model.trash.folders.isEmpty {
-                Section("Folders") {
+                Section {
                     ForEach(model.trash.folders) { folder in
                         Label(folder.name, systemImage: "folder")
+                            .font(Theme.serifBody)
                             .swipeActions(edge: .leading) {
                                 Button("Restore", systemImage: "arrow.uturn.backward") {
                                     Task { await model.restoreFolder(folder.id) }
@@ -23,10 +24,12 @@ struct TrashView: View {
                                 }
                             }
                     }
+                } header: {
+                    Text("FOLDERS").font(Theme.meta)
                 }
             }
             if !model.trash.notes.isEmpty {
-                Section("Notes") {
+                Section {
                     ForEach(model.trash.notes) { note in
                         NoteRow(note: note)
                             .swipeActions(edge: .leading) {
@@ -41,22 +44,17 @@ struct TrashView: View {
                                 }
                             }
                     }
+                } header: {
+                    Text("NOTES").font(Theme.meta)
                 }
             }
         }
+        .listStyle(.plain)
+        .scrollContentBackground(.hidden)
         .overlay {
             if model.trash.folders.isEmpty && model.trash.notes.isEmpty {
                 ContentUnavailableView("Trash is Empty", systemImage: "trash")
             }
-        }
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button("Empty", role: .destructive) { confirmEmpty = true }
-                    .disabled(model.trash.folders.isEmpty && model.trash.notes.isEmpty)
-            }
-        }
-        .confirmationDialog("Delete everything in Trash?", isPresented: $confirmEmpty, titleVisibility: .visible) {
-            Button("Delete All", role: .destructive) { Task { await model.emptyTrash() } }
         }
     }
 }

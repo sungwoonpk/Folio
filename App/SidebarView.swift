@@ -3,6 +3,7 @@ import SwiftUI
 
 struct SidebarView: View {
     @Environment(AppModel.self) private var model
+    @Environment(Nav.self) private var nav
 
     @State private var showSettings = false
     @State private var showNewFolder = false
@@ -12,33 +13,35 @@ struct SidebarView: View {
     @State private var moving: Folder?
 
     var body: some View {
-        @Bindable var model = model
-        List(selection: $model.sidebar) {
-            Label("Notes", systemImage: "note.text").tag(SidebarItem.all)
-
-            Section("Folders") {
-                OutlineGroup(model.folderTree, children: \.children) { node in
-                    Label(node.folder.name, systemImage: "folder")
-                        .tag(SidebarItem.folder(node.id))
-                        .contextMenu { menu(for: node.folder) }
-                }
-            }
-
-            Label("Trash", systemImage: "trash").tag(SidebarItem.trash)
-        }
-        .navigationTitle("Folders")
-        .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                Button("Settings", systemImage: "gearshape") { showSettings = true }
-            }
-            ToolbarItem(placement: .bottomBar) {
-                Button("New Folder", systemImage: "folder.badge.plus") {
+        VStack(spacing: 0) {
+            Header(title: "Folders") {
+                IconButton(systemName: "folder.badge.plus", label: "New Folder") {
                     newFolderParent = nil
                     nameText = ""
                     showNewFolder = true
                 }
+                IconButton(systemName: "gearshape", label: "Settings") { showSettings = true }
             }
+
+            List {
+                row(.all, "Notes", icon: "note.text")
+
+                Section {
+                    OutlineGroup(model.folderTree, children: \.children) { node in
+                        row(.folder(node.id), node.folder.name, icon: "folder")
+                            .contextMenu { menu(for: node.folder) }
+                    }
+                } header: {
+                    Text("FOLDERS").font(Theme.meta).foregroundStyle(.secondary)
+                }
+
+                row(.trash, "Trash", icon: "trash")
+            }
+            .listStyle(.plain)
+            .scrollContentBackground(.hidden)
         }
+        .background(Theme.paper)
+        .toolbar(.hidden, for: .navigationBar)
         .alert("New Folder", isPresented: $showNewFolder) {
             TextField("Name", text: $nameText)
             Button("Create") { Task { await model.createFolder(name: nameText, parentId: newFolderParent) } }
@@ -57,6 +60,26 @@ struct SidebarView: View {
                 Task { await model.moveFolder(folder.id, to: target) }
             }
         }
+    }
+
+    private func row(_ item: SidebarItem, _ title: String, icon: String) -> some View {
+        let selected = model.sidebar == item
+        return Button {
+            model.sidebar = item
+            nav.compactColumn = .content
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: icon).frame(width: 22)
+                Text(title).font(Theme.serifBody)
+                Spacer()
+            }
+            .foregroundStyle(selected ? Theme.accent : Color.primary)
+            .padding(.vertical, 6)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .listRowBackground(selected ? Theme.accent.opacity(0.12) : Color.clear)
+        .listRowSeparator(.hidden)
     }
 
     @ViewBuilder
@@ -98,6 +121,7 @@ struct MovePicker: View {
                     row(item.folder.name, systemImage: "folder", depth: item.depth + 1, target: item.folder.id)
                 }
             }
+            .listStyle(.plain)
             .navigationTitle(title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -113,9 +137,9 @@ struct MovePicker: View {
             dismiss()
         } label: {
             HStack {
-                Label(name, systemImage: systemImage)
+                Label(name, systemImage: systemImage).font(Theme.serifBody)
                 Spacer()
-                if target == current { Image(systemName: "checkmark") }
+                if target == current { Image(systemName: "checkmark").foregroundStyle(Theme.accent) }
             }
             .padding(.leading, CGFloat(depth) * 18)
         }
