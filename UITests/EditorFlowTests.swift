@@ -20,8 +20,7 @@ final class EditorFlowTests: XCTestCase {
     }
 
     func testBulletsAndTable() throws {
-        let app = XCUIApplication()
-        app.launch()
+        let app = launchApp()
 
         app.buttons["New Folder"].firstMatch.tap()
         app.alerts.textFields.firstMatch.typeText("Work")

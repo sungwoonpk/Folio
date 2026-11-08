@@ -10,8 +10,7 @@ final class AppearanceIconTests: XCTestCase {
     }
 
     func testIconSwitchesMode() throws {
-        let app = XCUIApplication()
-        app.launch()
+        let app = launchApp()
         XCTAssertFalse(app.buttons["Settings"].exists, "the settings gear is gone")
         let icon = app.buttons["Appearance"]
         XCTAssertTrue(icon.waitForExistence(timeout: 5))

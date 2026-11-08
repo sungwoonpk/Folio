@@ -5,8 +5,7 @@ import XCTest
 final class ReopenNotesTests: XCTestCase {
     func testNotesAlwaysShowTheirTextWhenReopened() throws {
         continueAfterFailure = false
-        let app = XCUIApplication()
-        app.launch()
+        let app = launchApp()
 
         let folder = "Loop\(Int.random(in: 100...999))"
         app.buttons["New Folder"].firstMatch.tap()

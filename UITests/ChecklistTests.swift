@@ -11,8 +11,7 @@ final class ChecklistTests: XCTestCase {
 
     func testChecklistFlow() throws {
         continueAfterFailure = false
-        let app = XCUIApplication()
-        app.launch()
+        let app = launchApp()
 
         let folder = "Todo\(Int.random(in: 100...999))"
         app.buttons["New Folder"].firstMatch.tap()

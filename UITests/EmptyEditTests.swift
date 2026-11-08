@@ -7,8 +7,7 @@ final class EmptyEditTests: XCTestCase {
     func testEditOnEmptyHomeShowsMessage() throws {
         continueAfterFailure = false
         try? FileManager.default.createDirectory(atPath: shots, withIntermediateDirectories: true)
-        let app = XCUIApplication()
-        app.launch()
+        let app = launchApp()
         XCTAssertTrue(app.staticTexts["No Folders"].waitForExistence(timeout: 3))
         app.buttons["Edit"].tap()
         XCTAssertTrue(app.staticTexts["Nothing to Edit"].waitForExistence(timeout: 2))
