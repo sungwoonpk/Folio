@@ -1,37 +1,54 @@
 import NoteCore
 import SwiftUI
 
-/// Plain-text editor for now. The first line becomes the title, each line is a text block.
-/// The block editor (bullets, tables, images, audio) replaces this next.
+/// Note editor: runs of text (title, bullets) with tables in between.
+/// The first line is the title. Everything saves as blocks.
 struct EditorView: View {
     let noteId: UUID
     @Environment(AppModel.self) private var model
     @Environment(Nav.self) private var nav
     @Environment(\.horizontalSizeClass) private var sizeClass
 
-    @State private var text = ""
-    @State private var lastSaved = ""
+    @State private var segments: [Segment] = [.text(id: UUID(), "")]
+    @State private var lastSaved: [Segment] = []
     @State private var loaded = false
     @State private var saveTask: Task<Void, Never>?
-    @State private var autofocus = false
+    @State private var focus: UUID?
 
     var body: some View {
         VStack(spacing: 0) {
             Header(title: "", leading: leading) { EmptyView() }
-            NoteTextView(text: $text, autofocus: autofocus)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 0) {
+                    ForEach(segments) { segment in
+                        switch segment {
+                        case .text(let id, _):
+                            NoteTextView(
+                                text: textBinding(id), segmentId: id, isFirst: id == segments.first?.id,
+                                focusRequest: $focus
+                            ) { cursor in insertTable(in: id, at: cursor) }
+                        case .table(let id, _):
+                            TableBlockView(table: tableBinding(id)) { deleteTable(id) }
+                        }
+                    }
+                    // Tap below the last line to keep writing.
+                    Color.clear.frame(height: 160).contentShape(Rectangle())
+                        .onTapGesture { focus = segments.last?.id }
+                }
+            }
+            .scrollDismissesKeyboard(.interactively)
         }
         .background(Theme.paper)
         .toolbar(.hidden, for: .navigationBar)
         .task {
             let blocks = (try? await model.store.blocks(noteId: noteId)) ?? []
-            let joined = blocks.map(\.content).joined(separator: "\n")
-            lastSaved = joined
-            text = joined
+            segments = NoteDocument.segments(from: blocks)
+            lastSaved = segments
             loaded = true
-            autofocus = joined.isEmpty
+            if NoteDocument.isBlank(segments) { focus = segments.first?.id }
         }
-        .onChange(of: text) {
-            guard loaded, text != lastSaved else { return }
+        .onChange(of: segments) {
+            guard loaded, segments != lastSaved else { return }
             saveTask?.cancel()
             saveTask = Task {
                 do { try await Task.sleep(for: .milliseconds(400)) } catch { return }
@@ -40,14 +57,14 @@ struct EditorView: View {
         }
         .onDisappear {
             saveTask?.cancel()
-            let finalText = text
+            let finalSegments = segments
             let id = noteId
             let wasLoaded = loaded
-            Task { await finish(id: id, text: finalText, wasLoaded: wasLoaded) }
+            Task { await finish(id: id, segments: finalSegments, wasLoaded: wasLoaded) }
         }
     }
 
-    /// Back on iPhone, list and sidebar toggle on iPad.
+    /// Back on iPhone, sidebar toggle on iPad.
     private var leading: (icon: String, label: String, action: () -> Void)? {
         if sizeClass == .compact {
             return ("chevron.left", "Back", { nav.compactColumn = .sidebar })
@@ -57,24 +74,79 @@ struct EditorView: View {
         })
     }
 
+    // MARK: Segment bindings and edits
+
+    private func textBinding(_ id: UUID) -> Binding<String> {
+        Binding(
+            get: {
+                if case .text(_, let text)? = segments.first(where: { $0.id == id }) { return text }
+                return ""
+            },
+            set: { value in
+                if let index = segments.firstIndex(where: { $0.id == id }) {
+                    segments[index] = .text(id: id, value)
+                }
+            }
+        )
+    }
+
+    private func tableBinding(_ id: UUID) -> Binding<TableContent> {
+        Binding(
+            get: {
+                if case .table(_, let table)? = segments.first(where: { $0.id == id }) { return table }
+                return .blank()
+            },
+            set: { value in
+                if let index = segments.firstIndex(where: { $0.id == id }) {
+                    segments[index] = .table(id: id, value)
+                }
+            }
+        )
+    }
+
+    /// Splits the text at the cursor and puts a new table in between.
+    private func insertTable(in id: UUID, at cursor: Int) {
+        guard let index = segments.firstIndex(where: { $0.id == id }),
+              case .text(_, let text) = segments[index] else { return }
+        let ns = text as NSString
+        let at = min(max(cursor, 0), ns.length)
+        var before = ns.substring(to: at)
+        var after = ns.substring(from: at)
+        if before.hasSuffix("\n") { before.removeLast() }
+        if after.hasPrefix("\n") { after.removeFirst() }
+        let afterId = UUID()
+        segments.replaceSubrange(index...index, with: [
+            .text(id: id, before), .table(id: UUID(), .blank()), .text(id: afterId, after),
+        ])
+        focus = afterId
+    }
+
+    /// Removes a table and joins the text on both sides.
+    private func deleteTable(_ id: UUID) {
+        guard let index = segments.firstIndex(where: { $0.id == id }),
+              index > 0, index < segments.count - 1,
+              case .text(let beforeId, let before) = segments[index - 1],
+              case .text(_, let after) = segments[index + 1] else { return }
+        let joined = before.isEmpty ? after : (after.isEmpty ? before : before + "\n" + after)
+        segments.replaceSubrange((index - 1)...(index + 1), with: [.text(id: beforeId, joined)])
+    }
+
+    // MARK: Saving
+
     private func save() async {
-        let current = text
-        try? await model.store.saveNote(id: noteId, blocks: Self.blocks(from: current, noteId: noteId))
+        let current = segments
+        try? await model.store.saveNote(id: noteId, blocks: NoteDocument.blocks(from: current, noteId: noteId))
         lastSaved = current
         await model.reloadNotes()
     }
 
-    private func finish(id: UUID, text: String, wasLoaded: Bool) async {
+    private func finish(id: UUID, segments: [Segment], wasLoaded: Bool) async {
         guard wasLoaded else { return }
-        if text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+        if NoteDocument.isBlank(segments) {
             await model.discardIfEmpty(id)
-        } else if text != lastSaved {
-            try? await model.store.saveNote(id: id, blocks: Self.blocks(from: text, noteId: id))
+        } else if segments != lastSaved {
+            try? await model.store.saveNote(id: id, blocks: NoteDocument.blocks(from: segments, noteId: id))
             await model.reloadNotes()
         }
-    }
-
-    private static func blocks(from text: String, noteId: UUID) -> [Block] {
-        text.components(separatedBy: "\n").map { Block(noteId: noteId, content: $0) }
     }
 }
