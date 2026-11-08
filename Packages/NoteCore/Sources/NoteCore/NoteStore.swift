@@ -34,18 +34,21 @@ public final class NoteStore: Sendable {
 
     public func folders() async throws -> [Folder] {
         try await writer.read { db in
-            // Most recently modified first, at every level of the tree.
-            try Folder.filter(Column("deletedAt") == nil).order(Column("updatedAt").desc, Column("name")).fetchAll(db)
+            // Folders the user never arranged come first, most recently modified on top.
+            // Arranged folders (sortOrder > 0) follow, in the order the user set.
+            try Folder.filter(Column("deletedAt") == nil)
+                .order(sql: """
+                    sortOrder > 0, CASE WHEN sortOrder > 0 THEN sortOrder END, updatedAt DESC, name
+                    """)
+                .fetchAll(db)
         }
     }
 
     @discardableResult
     public func createFolder(name: String, parentId: UUID? = nil) async throws -> Folder {
         try await writer.write { db -> Folder in
-            let top = try Double.fetchOne(
-                db, Folder.filter(Column("parentId") == parentId).select(max(Column("sortOrder")))
-            )
-            var folder = Folder(name: name, parentId: parentId, sortOrder: (top ?? 0) + 1)
+            // sortOrder 0 means automatic: most recently modified first.
+            var folder = Folder(name: name, parentId: parentId)
             try folder.insert(db)
             return folder
         }
@@ -57,6 +60,15 @@ public final class NoteStore: Sendable {
             folder.name = name
             folder.updatedAt = Date()
             try folder.update(db)
+        }
+    }
+
+    /// Saves a hand-arranged order for folders that share a parent. First id is shown first.
+    public func reorderFolders(_ ids: [UUID]) async throws {
+        try await writer.write { db in
+            for (index, id) in ids.enumerated() {
+                try Folder.filter(Column("id") == id).updateAll(db, Column("sortOrder").set(to: Double(index + 1)))
+            }
         }
     }
 
@@ -88,6 +100,7 @@ public final class NoteStore: Sendable {
                 let newId = UUID()
                 idMap[oldId] = newId
                 folder.id = newId
+                folder.sortOrder = 0
                 folder.createdAt = Date()
                 folder.updatedAt = Date()
                 if oldId == id {

@@ -108,6 +108,30 @@ final class NoteStoreTests: XCTestCase {
         XCTAssertEqual(notes.first, first.id, "editing a note moves it to the top")
     }
 
+    func testManualFolderOrderStaysAndNewFoldersGoOnTop() async throws {
+        let store = try makeStore()
+        let a = try await store.createFolder(name: "A")
+        try await Task.sleep(nanoseconds: 5_000_000)
+        let b = try await store.createFolder(name: "B")
+        try await Task.sleep(nanoseconds: 5_000_000)
+        let c = try await store.createFolder(name: "C")
+
+        try await store.reorderFolders([a.id, c.id, b.id])
+        var order = try await store.folders().map(\.id)
+        XCTAssertEqual(order, [a.id, c.id, b.id])
+
+        // Editing a note in B must not move it once the user arranged the folders.
+        let n = try await store.createNote(folderId: b.id)
+        try await write(store, n, ["edit"])
+        order = try await store.folders().map(\.id)
+        XCTAssertEqual(order, [a.id, c.id, b.id])
+
+        try await Task.sleep(nanoseconds: 5_000_000)
+        let d = try await store.createFolder(name: "D")
+        order = try await store.folders().map(\.id)
+        XCTAssertEqual(order, [d.id, a.id, c.id, b.id], "new folder is on top")
+    }
+
     func testNotesWorkWithoutAnyFolder() async throws {
         let store = try makeStore()
         let note = try await store.createNote()
