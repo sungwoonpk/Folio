@@ -20,11 +20,11 @@ enum SettingsKey {
     static let appearance = "appearance"
 }
 
-/// What the user chose. Until the first tap on the mode icon nothing is chosen and the phone's setting wins.
+/// What the user chose. Until the first tap on the mode icon nothing is chosen and the system setting wins.
 enum Appearance: String {
     case system, light, dark
 
-    /// nil follows the phone setting.
+    /// nil follows the system setting.
     var colorScheme: ColorScheme? {
         switch self {
         case .system: nil

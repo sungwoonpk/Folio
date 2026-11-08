@@ -13,7 +13,7 @@ struct HomeView: View {
     @State private var movingSearchNote: Note?
 
     private var folders: [Folder] { model.subfolders(of: nil) }
-    /// The mode actually on screen, whether the user chose it or the phone did.
+    /// The mode actually on screen, whether the user chose it or the system did.
     @Environment(\.colorScheme) private var scheme
 
     private var headerTitle: String {

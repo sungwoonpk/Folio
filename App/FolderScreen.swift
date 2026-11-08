@@ -132,7 +132,7 @@ struct FolderScreen: View {
     }
 
     private func noteRow(_ note: Note) -> some View {
-        // Only tint the open note when the editor is next to the list. On iPhone it is a separate screen.
+        // Only tint the open note when the editor is next to the list. On a compact screen it is a separate screen.
         let open = !model.selecting && sizeClass == .regular && model.selectedNoteId == note.id
         return Button {
             if model.selecting {

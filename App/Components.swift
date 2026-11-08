@@ -12,7 +12,7 @@ enum Route: Hashable {
 @MainActor @Observable
 final class Nav {
     var columns: NavigationSplitViewVisibility = .automatic
-    /// iPhone opens on the main screen.
+    /// A compact screen opens on the main screen.
     var compactColumn: NavigationSplitViewColumn = .sidebar
     var path: [Route] = []
 

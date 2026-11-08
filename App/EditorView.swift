@@ -78,7 +78,7 @@ struct EditorView: View {
         }
     }
 
-    /// Back on iPhone, sidebar toggle on iPad.
+    /// Back on a compact screen, sidebar toggle on a wide one.
     private var leading: (icon: String, label: String, action: () -> Void)? {
         if sizeClass == .compact {
             return ("chevron.left", "Back", { nav.compactColumn = .sidebar })
