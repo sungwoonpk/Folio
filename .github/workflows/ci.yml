@@ -10,7 +10,7 @@ jobs:
     name: NoteCore unit tests
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Test
         working-directory: Packages/NoteCore
         run: swift test
@@ -19,7 +19,7 @@ jobs:
     name: Build the app
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Install XcodeGen
         run: brew install xcodegen
       - name: Generate the Xcode project
