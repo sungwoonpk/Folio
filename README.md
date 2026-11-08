@@ -111,7 +111,7 @@ Folio/
 │   │   └── FolderSearch.swift Folder names, any part, any case
 │   └── Tests/NoteCoreTests/   Unit tests
 ├── UITests/                   Tests that drive the real app
-├── docs/screenshots/          Images for this README
+├── docs/                      Screenshots, demo GIF, design decisions
 └── project.yml                XcodeGen project definition
 ```
 
@@ -126,6 +126,8 @@ Folio/
 - **Navigation.** `NavigationSplitView` with a `NavigationStack`. System bars are hidden, each screen draws one header so actions sit together at the top right.
 
 ## Design decisions
+
+The reasoning is written down in [docs/decisions](docs/decisions): [one-level folders](docs/decisions/0001-one-level-folders.md), [trigram search](docs/decisions/0002-trigram-search.md), [blocks and text runs](docs/decisions/0003-blocks-and-text-runs.md). In short:
 
 - **Folders are one level.** Nested trees get confusing. `NoteCore` enforces it, the UI does not just hide it.
 - **Notes always live in a folder.** No loose pile to lose track of.
