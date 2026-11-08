@@ -175,7 +175,7 @@ struct HomeView: View {
                 Image(systemName: "trash")
                 Text(count > 0 ? "Trash \(count)" : "Trash")
             }
-            .font(.footnote)
+            .font(.subheadline)
             .foregroundStyle(.secondary)
             .padding(.horizontal, 14)
             .padding(.vertical, 8)
