@@ -49,11 +49,9 @@ enum Theme {
     }
     static let accent = Color(uiColor: accentUI)
 
-    /// Warm cream paper in light mode, warm near-black in dark mode.
+    /// Pure white in light mode, pure black in dark mode. Text is black and white to match.
     static let paper = Color(uiColor: UIColor { traits in
-        traits.userInterfaceStyle == .dark
-            ? UIColor(red: 0.09, green: 0.08, blue: 0.07, alpha: 1)
-            : UIColor(red: 0.97, green: 0.95, blue: 0.91, alpha: 1)
+        traits.userInterfaceStyle == .dark ? .black : .white
     })
 
     static let serifBody = Font.system(.body, design: .serif)
