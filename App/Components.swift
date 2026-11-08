@@ -139,6 +139,8 @@ struct MovePicker: View {
     let title: String
     /// Name of the top-level choice: "Notes" for notes, "Note" for folders.
     var rootTitle: String = "Notes"
+    /// Notes always live in a folder, so only folders get a top-level choice.
+    var allowRoot = true
     var excluding: UUID?
     var current: UUID?
     let onPick: (UUID?) -> Void
@@ -146,7 +148,7 @@ struct MovePicker: View {
     var body: some View {
         NavigationStack {
             List {
-                row(rootTitle, systemImage: "house", depth: 0, target: nil)
+                if allowRoot { row(rootTitle, systemImage: "house", depth: 0, target: nil) }
                 ForEach(model.moveTargets(excluding: excluding), id: \.folder.id) { item in
                     row(item.folder.name, systemImage: "folder", depth: item.depth + 1, target: item.folder.id)
                 }

@@ -32,7 +32,7 @@ struct FolderScreen: View {
             Header(title: title, leading: ("chevron.left", "Back", { nav.back() })) { actions }
                 .background(dropHighlight == "header" ? Theme.accent.opacity(0.15) : Color.clear)
                 // Drop on the header to take an item out, up to the parent folder.
-                .acceptsItems(into: folder?.parentId, key: "header", enabled: folder != nil, highlight: $dropHighlight)
+                .acceptsItems(into: folder?.parentId, key: "header", enabled: folder?.parentId != nil, highlight: $dropHighlight)
             list
         }
         .background(Theme.paper)
@@ -60,12 +60,12 @@ struct FolderScreen: View {
             }
         }
         .sheet(item: $movingNote) { note in
-            MovePicker(title: "Move", current: note.folderId) { target in
+            MovePicker(title: "Move", allowRoot: false, current: note.folderId) { target in
                 Task { await model.moveNote(note.id, to: target) }
             }
         }
         .sheet(isPresented: $movingPicked) {
-            MovePicker(title: "Move", current: folderId) { target in
+            MovePicker(title: "Move", allowRoot: model.pickedNotes.isEmpty, current: folderId) { target in
                 Task { await model.movePicked(to: target) }
             }
         }
@@ -85,13 +85,13 @@ struct FolderScreen: View {
                 .disabled(model.pickedCount == 0)
             Button("Done") { model.endSelection() }
         } else {
-            Button("Edit") { model.selecting = true }.disabled(isEmpty)
             if folderId != nil {
                 IconButton(systemName: "folder.badge.plus", label: "New Folder") {
                     nameText = ""
                     showNewFolder = true
                 }
             }
+            Button("Edit") { model.selecting = true }.disabled(isEmpty)
             IconButton(systemName: "square.and.pencil", label: "New Note") { newNote() }
         }
     }

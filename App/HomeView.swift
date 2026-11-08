@@ -76,12 +76,12 @@ struct HomeView: View {
                 .disabled(model.pickedCount == 0)
             Button("Done") { model.endSelection() }
         } else {
-            Button("Edit") { model.selecting = true }.disabled(folders.isEmpty)
             IconButton(systemName: "folder.badge.plus", label: "New Folder") {
                 newFolderParent = nil
                 nameText = ""
                 showNewFolder = true
             }
+            Button("Edit") { model.selecting = true }.disabled(folders.isEmpty)
             IconButton(systemName: "gearshape", label: "Settings") { showSettings = true }
         }
     }
@@ -91,7 +91,8 @@ struct HomeView: View {
     private var folderList: some View {
         List {
             Section {
-                notesRow
+                // Only shows if notes without a folder are left over, so none get lost.
+                if !model.notes(in: nil).isEmpty { notesRow }
                 ForEach(folders) { folder in folderRow(folder) }
                     .onMove { source, destination in
                         Task { await model.moveFolders(in: nil, from: source, to: destination) }
@@ -103,6 +104,19 @@ struct HomeView: View {
         .environment(\.editMode, .constant(model.selecting ? .active : .inactive))
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
+        .overlay {
+            if folders.isEmpty && model.notes(in: nil).isEmpty {
+                ContentUnavailableView {
+                    Label("No Folders", systemImage: "folder")
+                } actions: {
+                    Button("New Folder") {
+                        newFolderParent = nil
+                        nameText = ""
+                        showNewFolder = true
+                    }
+                }
+            }
+        }
     }
 
     private var searchList: some View {
