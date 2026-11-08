@@ -122,7 +122,7 @@ struct NoteRow: View {
             Text(note.snippet.isEmpty ? "No additional text" : note.snippet)
                 .font(.system(.subheadline, design: .serif))
                 .foregroundStyle(.secondary)
-                .lineLimit(2)
+                .lineLimit(1)
             Text(note.updatedAt, format: .dateTime.month(.abbreviated).day().hour().minute())
                 .font(Theme.meta)
                 .foregroundStyle(.tertiary)
