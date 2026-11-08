@@ -149,20 +149,14 @@ struct FolderScreen: View {
                 nav.path.append(.folder(sub.id))
             }
         } label: {
-            HStack(spacing: 12) {
-                if model.selecting { SelectMark(picked: model.pickedFolders.contains(sub.id)) }
-                Image(systemName: "folder").foregroundStyle(Theme.accent).frame(width: 22)
-                Text(sub.name).font(Theme.serifBody)
-                Spacer()
-                Text("\(model.itemCount(in: sub.id))").font(Theme.meta).foregroundStyle(.secondary)
-                Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.tertiary)
-            }
-            .padding(.vertical, 6)
-            .contentShape(Rectangle())
+            FolderCard(
+                title: sub.name, icon: "folder", count: model.noteCount(in: sub.id),
+                picked: model.selecting ? model.pickedFolders.contains(sub.id) : nil,
+                highlighted: dropHighlight == sub.id.uuidString
+            )
         }
         .buttonStyle(.plain)
-        .listRowSeparator(.hidden)
-        .listRowBackground(dropHighlight == sub.id.uuidString ? Theme.accent.opacity(0.18) : Color.clear)
+        .cardRow()
         .draggableItem(ItemRef(kind: .folder, id: sub.id), enabled: !model.selecting)
         .acceptsItems(into: sub.id, key: sub.id.uuidString, highlight: $dropHighlight)
         .swipeActions(edge: .trailing) {

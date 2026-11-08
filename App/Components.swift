@@ -218,3 +218,51 @@ extension View {
         if enabled { draggable(item) } else { self }
     }
 }
+
+/// Folder row: icon on the left, title, note count and an arrow on the right.
+/// The soft card and the arrow make it read as something you can tap.
+struct FolderCard: View {
+    let title: String
+    let icon: String
+    let count: Int?
+    var picked: Bool?
+    var highlighted = false
+    var muted = false
+
+    var body: some View {
+        HStack(spacing: 12) {
+            if let picked { SelectMark(picked: picked) }
+            Image(systemName: icon)
+                .foregroundStyle(muted ? Color.secondary : Theme.accent)
+                .frame(width: 24)
+            Text(title)
+                .font(Theme.serifBody)
+                .foregroundStyle(muted ? Color.secondary : Color.primary)
+                .lineLimit(1)
+            Spacer(minLength: 8)
+            if let count {
+                Text("\(count)").font(Theme.meta).foregroundStyle(.secondary)
+            }
+            Image(systemName: "chevron.right")
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(.secondary)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .background(
+            highlighted ? Theme.accent.opacity(0.2) : Theme.card,
+            in: RoundedRectangle(cornerRadius: Theme.corner, style: .continuous)
+        )
+        .contentShape(RoundedRectangle(cornerRadius: Theme.corner, style: .continuous))
+    }
+}
+
+extension View {
+    /// Row that sits on a clear background so the card inside is the only thing drawn.
+    func cardRow() -> some View {
+        self
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
+            .listRowInsets(EdgeInsets(top: 3, leading: 16, bottom: 3, trailing: 16))
+    }
+}

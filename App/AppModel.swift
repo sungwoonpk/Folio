@@ -27,6 +27,8 @@ final class AppModel {
 
     var selectedNoteId: UUID?
     var query = ""
+    /// Notes inside each folder, including its subfolders.
+    private(set) var folderNoteCounts: [UUID: Int] = [:]
 
     // Multi-select, used by the screen currently showing.
     var selecting = false
@@ -59,8 +61,23 @@ final class AppModel {
 
     func folder(_ id: UUID?) -> Folder? { id.flatMap { id in folders.first { $0.id == id } } }
 
-    /// Notes and subfolders directly inside a folder.
-    func itemCount(in folderId: UUID) -> Int { notes(in: folderId).count + subfolders(of: folderId).count }
+    /// How many notes are inside a folder, counting its subfolders too.
+    func noteCount(in folderId: UUID) -> Int { folderNoteCounts[folderId] ?? 0 }
+
+    private func rebuildCounts() {
+        var direct: [UUID: Int] = [:]
+        for note in notes { if let id = note.folderId { direct[id, default: 0] += 1 } }
+        let parent = Dictionary(uniqueKeysWithValues: folders.map { ($0.id, $0.parentId) })
+        var total: [UUID: Int] = [:]
+        for (id, count) in direct {
+            var current: UUID? = id
+            while let folder = current {
+                total[folder, default: 0] += count
+                current = parent[folder] ?? nil
+            }
+        }
+        folderNoteCounts = total
+    }
 
     // MARK: Loading
 
@@ -74,6 +91,7 @@ final class AppModel {
         let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
         if q.isEmpty {
             notes = (try? await store.notes(in: .all)) ?? []
+            rebuildCounts()
             // The open note vanished (its folder was deleted, for example).
             if let id = selectedNoteId, !notes.contains(where: { $0.id == id }) {
                 selectedNoteId = nil

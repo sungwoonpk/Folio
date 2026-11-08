@@ -54,6 +54,11 @@ enum Theme {
         traits.userInterfaceStyle == .dark ? .black : .white
     })
 
+    /// Corner radius for cards, fields and highlights. Soft, not round.
+    static let corner: CGFloat = 12
+    /// Faint fill that makes a row read as a button.
+    static let card = Color.primary.opacity(0.06)
+
     static let serifBody = Font.system(.body, design: .serif)
     static let serifTitle = Font.system(.largeTitle, design: .serif, weight: .bold)
     static let meta = Font.system(.caption, design: .monospaced)

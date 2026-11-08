@@ -135,19 +135,13 @@ struct HomeView: View {
         Button {
             nav.path.append(.folder(nil))
         } label: {
-            HStack(spacing: 12) {
-                Image(systemName: "note.text").foregroundStyle(Theme.accent).frame(width: 22)
-                Text("Notes").font(Theme.serifBody)
-                Spacer()
-                Text("\(model.notes(in: nil).count)").font(Theme.meta).foregroundStyle(.secondary)
-                Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.tertiary)
-            }
-            .padding(.vertical, 6)
-            .contentShape(Rectangle())
+            FolderCard(
+                title: "Notes", icon: "note.text", count: model.notes(in: nil).count,
+                highlighted: dropHighlight == "notes"
+            )
         }
         .buttonStyle(.plain)
-        .listRowSeparator(.hidden)
-        .listRowBackground(dropHighlight == "notes" ? Theme.accent.opacity(0.18) : Color.clear)
+        .cardRow()
         .acceptsItems(into: nil, key: "notes", highlight: $dropHighlight)
     }
 
@@ -159,20 +153,14 @@ struct HomeView: View {
                 nav.path.append(.folder(folder.id))
             }
         } label: {
-            HStack(spacing: 12) {
-                if model.selecting { SelectMark(picked: model.pickedFolders.contains(folder.id)) }
-                Image(systemName: "folder").foregroundStyle(Theme.accent).frame(width: 22)
-                Text(folder.name).font(Theme.serifBody)
-                Spacer()
-                Text("\(model.itemCount(in: folder.id))").font(Theme.meta).foregroundStyle(.secondary)
-                Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.tertiary)
-            }
-            .padding(.vertical, 6)
-            .contentShape(Rectangle())
+            FolderCard(
+                title: folder.name, icon: "folder", count: model.noteCount(in: folder.id),
+                picked: model.selecting ? model.pickedFolders.contains(folder.id) : nil,
+                highlighted: dropHighlight == folder.id.uuidString
+            )
         }
         .buttonStyle(.plain)
-        .listRowSeparator(.hidden)
-        .listRowBackground(dropHighlight == folder.id.uuidString ? Theme.accent.opacity(0.18) : Color.clear)
+        .cardRow()
         .draggableItem(ItemRef(kind: .folder, id: folder.id), enabled: !model.selecting)
         .acceptsItems(into: folder.id, key: folder.id.uuidString, highlight: $dropHighlight)
         .swipeActions(edge: .trailing) {
@@ -205,17 +193,9 @@ struct HomeView: View {
         return Button {
             nav.path.append(.trash)
         } label: {
-            HStack(spacing: 12) {
-                Image(systemName: "trash").frame(width: 22)
-                Text("Trash").font(Theme.serifBody)
-                Spacer()
-                if count > 0 { Text("\(count)").font(Theme.meta) }
-            }
-            .foregroundStyle(.secondary)
-            .padding(.vertical, 6)
-            .contentShape(Rectangle())
+            FolderCard(title: "Trash", icon: "trash", count: count > 0 ? count : nil, muted: true)
         }
         .buttonStyle(.plain)
-        .listRowSeparator(.hidden)
+        .cardRow()
     }
 }
