@@ -75,7 +75,7 @@ final class NoteDocumentTests: XCTestCase {
 
     func testTableMetaRoundTrip() {
         var table = TableContent.blank(rows: 2, columns: 2)
-        table.rows[1][1] = "한글 cell"
+        table.rows[1][1] = "한글 cell" // Korean on purpose: cells must round-trip non-ASCII text
         XCTAssertEqual(TableContent.decode(table.encoded()), table)
         XCTAssertNil(TableContent.decode("not json"))
         XCTAssertNil(TableContent.decode(nil))

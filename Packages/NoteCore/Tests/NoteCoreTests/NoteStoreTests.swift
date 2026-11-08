@@ -286,6 +286,8 @@ final class NoteStoreTests: XCTestCase {
         XCTAssertEqual(byBody.count, 1)
     }
 
+    /// The Korean text is test data on purpose: search must work without spaces between words,
+    /// and for queries shorter than the trigram size.
     func testSearchKoreanAndShortQueries() async throws {
         let store = try makeStore()
         let n = try await store.createNote()
