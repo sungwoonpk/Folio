@@ -50,14 +50,43 @@ public struct TableContent: Codable, Equatable, Sendable {
     }
 }
 
-/// What the editor shows: runs of text (with bullet lines) separated by tables.
+/// A picture inside a note. The file lives in the app's image folder, only its name is stored here.
+public struct ImageContent: Codable, Equatable, Sendable {
+    public var file: String
+    public var width: Int
+    public var height: Int
+    public var caption: String
+
+    public init(file: String, width: Int, height: Int, caption: String = "") {
+        self.file = file
+        self.width = width
+        self.height = height
+        self.caption = caption
+    }
+
+    /// Width divided by height, so the view can reserve space before the image loads.
+    public var aspectRatio: Double { height > 0 ? Double(width) / Double(height) : 1 }
+
+    /// Stored in Block.meta.
+    public func encoded() -> String? {
+        (try? JSONEncoder().encode(self)).flatMap { String(data: $0, encoding: .utf8) }
+    }
+
+    public static func decode(_ meta: String?) -> ImageContent? {
+        guard let data = meta?.data(using: .utf8) else { return nil }
+        return try? JSONDecoder().decode(ImageContent.self, from: data)
+    }
+}
+
+/// What the editor shows: runs of text (with bullet lines) separated by tables and pictures.
 public enum Segment: Equatable, Identifiable, Sendable {
     case text(id: UUID, String)
     case table(id: UUID, TableContent)
+    case image(id: UUID, ImageContent)
 
     public var id: UUID {
         switch self {
-        case .text(let id, _), .table(let id, _): id
+        case .text(let id, _), .table(let id, _), .image(let id, _): id
         }
     }
 }
@@ -67,8 +96,8 @@ public enum Segment: Equatable, Identifiable, Sendable {
 public enum NoteDocument {
     public static let bulletPrefix = "• "
 
-    /// Always starts and ends with a text segment, and has a text segment between any two tables,
-    /// so there is always somewhere to put the cursor.
+    /// Always starts and ends with a text segment, and has a text segment between any two tables
+    /// or pictures, so there is always somewhere to put the cursor.
     public static func segments(from blocks: [Block]) -> [Segment] {
         var segments: [Segment] = []
         var lines: [String] = []
@@ -78,6 +107,12 @@ public enum NoteDocument {
                 segments.append(.text(id: UUID(), lines.joined(separator: "\n")))
                 lines = []
                 segments.append(.table(id: UUID(), TableContent.decode(block.meta) ?? .blank()))
+            case .image:
+                // A picture whose data is unreadable is dropped rather than shown broken.
+                guard let image = ImageContent.decode(block.meta) else { continue }
+                segments.append(.text(id: UUID(), lines.joined(separator: "\n")))
+                lines = []
+                segments.append(.image(id: UUID(), image))
             case .bullet:
                 lines.append(bulletPrefix + block.content)
             default:
@@ -102,12 +137,14 @@ public enum NoteDocument {
                 }
             case .table(_, let table):
                 blocks.append(Block(noteId: noteId, kind: .table, content: table.plainText, meta: table.encoded()))
+            case .image(_, let image):
+                blocks.append(Block(noteId: noteId, kind: .image, content: image.caption, meta: image.encoded()))
             }
         }
         return blocks
     }
 
-    /// True when there is nothing worth keeping: only whitespace and no tables.
+    /// True when there is nothing worth keeping: only whitespace, no tables, no pictures.
     public static func isBlank(_ segments: [Segment]) -> Bool {
         segments.allSatisfy { segment in
             if case .text(_, let text) = segment {
