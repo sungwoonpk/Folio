@@ -30,6 +30,24 @@ enum Appearance: String, CaseIterable, Identifiable {
         case .dark: "Dark"
         }
     }
+    /// Icon for the current choice.
+    var icon: String {
+        switch self {
+        case .system: "circle.lefthalf.filled"
+        case .light: "sun.max"
+        case .dark: "moon"
+        }
+    }
+
+    /// Tapping the icon goes System, Light, Dark, then back to System.
+    var next: Appearance {
+        switch self {
+        case .system: .light
+        case .light: .dark
+        case .dark: .system
+        }
+    }
+
     /// nil follows the phone setting.
     var colorScheme: ColorScheme? {
         switch self {

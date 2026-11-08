@@ -6,13 +6,14 @@ struct HomeView: View {
     @Environment(AppModel.self) private var model
     @Environment(Nav.self) private var nav
 
-    @State private var showSettings = false
+    @AppStorage(SettingsKey.appearance) private var appearanceRaw = Appearance.system.rawValue
     @State private var showNewFolder = false
     @State private var nameText = ""
     @State private var renaming: Folder?
     @State private var movingSearchNote: Note?
 
     private var folders: [Folder] { model.subfolders(of: nil) }
+    private var appearance: Appearance { Appearance(rawValue: appearanceRaw) ?? .system }
 
     private var headerTitle: String {
         guard model.selecting else { return "Note" }
@@ -51,7 +52,6 @@ struct HomeView: View {
             }
             Button("Cancel", role: .cancel) {}
         }
-        .sheet(isPresented: $showSettings) { SettingsView() }
         .sheet(item: $movingSearchNote) { note in
             MovePicker(current: note.folderId) { target in
                 Task { await model.moveNote(note.id, to: target) }
@@ -73,7 +73,7 @@ struct HomeView: View {
         } else {
             IconButton(systemName: "folder.badge.plus", label: "New Folder") { startNewFolder() }
             Button("Edit") { model.selecting = true }
-            IconButton(systemName: "gearshape", label: "Settings") { showSettings = true }
+            IconButton(systemName: appearance.icon, label: "Appearance") { appearanceRaw = appearance.next.rawValue }
         }
     }
 
