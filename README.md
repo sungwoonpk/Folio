@@ -25,6 +25,12 @@ Other note apps kept getting in the way.
 - **Light or dark.** One icon flips between them. The first launch follows the phone.
 - **Autosave.** A note opened and left empty is removed.
 
+## Demo
+
+<p align="center"><img src="docs/demo.gif" width="260" alt="A tour of the app"></p>
+
+A 35 second tour at double speed: make folders, write bullets, a checklist and a table, search, switch to dark mode, delete a note and bring it back. [MP4 version](docs/demo.mp4).
+
 ## Screenshots
 
 | Folders | Notes by date | Checklist | Table | Dark |
@@ -77,6 +83,7 @@ xcodebuild -project Notes.xcodeproj -scheme Notes \
 - **UI tests:** every main flow plus awkward ones: blank and very long names, empty notes, deleting every folder, restoring with no folder left, closing and reopening the app.
 - **Isolation:** UI tests launch with `-ui-testing`: in-memory database, phone's light/dark mode. `-ui-testing-db <path>` uses a file for tests that relaunch.
 - **Screenshots:** `TEST_RUNNER_SCREENSHOT_DIR=docs/screenshots xcodebuild ... -only-testing:NotesUITests/ScreenshotTests test`
+- **Demo video:** `DemoTests` plays the tour slowly. Run it with `TEST_RUNNER_DEMO=1` while `xcrun simctl io booted recordVideo demo.mp4` records the simulator, then convert with `ffmpeg`.
 
 ## Repo structure
 
