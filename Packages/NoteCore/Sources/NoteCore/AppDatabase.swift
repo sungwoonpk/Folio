@@ -24,7 +24,7 @@ public final class AppDatabase: Sendable {
         try AppDatabase(writer: DatabaseQueue())
     }
 
-    private static var migrator: DatabaseMigrator {
+    static var migrator: DatabaseMigrator {
         var migrator = DatabaseMigrator()
 
         migrator.registerMigration("v1") { db in
@@ -67,6 +67,12 @@ public final class AppDatabase: Sendable {
                     noteId UNINDEXED, title, body, tokenize = 'trigram'
                 )
                 """)
+        }
+
+        // Folders are one level only. Older databases may have folders inside folders:
+        // they move up to the top level, their notes stay where they are.
+        migrator.registerMigration("v2-flat-folders") { db in
+            try db.execute(sql: "UPDATE folder SET parentId = NULL WHERE parentId IS NOT NULL")
         }
 
         return migrator

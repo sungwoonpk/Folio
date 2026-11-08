@@ -3,7 +3,7 @@ import XCTest
 
 final class NoteStoreTests: XCTestCase {
     private func makeStore() throws -> NoteStore {
-        NoteStore(database: try AppDatabase.inMemory())
+        NoteStore(database: try AppDatabase.inMemory(), maxFolderDepth: .max)
     }
 
     private func write(_ store: NoteStore, _ note: Note, _ lines: [String]) async throws {
