@@ -12,6 +12,8 @@ struct EditorView: View {
     @State private var segments: [Segment] = [.text(id: UUID(), "")]
     @State private var lastSaved: [Segment] = []
     @State private var loaded = false
+    @State private var loadFailed = false
+    @State private var loading = false
     @State private var saveTask: Task<Void, Never>?
     @State private var focus: UUID?
     @State private var controller = EditorController()
@@ -41,16 +43,23 @@ struct EditorView: View {
                 }
             }
             .scrollDismissesKeyboard(.interactively)
+            // Never let anyone type into a note that has not loaded: saving would overwrite it.
+            .allowsHitTesting(loaded)
+            .opacity(loaded ? 1 : 0)
+            .overlay {
+                if loadFailed {
+                    ContentUnavailableView {
+                        Label("Couldn't Open", systemImage: "exclamationmark.triangle")
+                    } actions: {
+                        Button("Try Again") { Task { await load() } }
+                    }
+                }
+            }
         }
         .background(Theme.paper)
         .toolbar(.hidden, for: .navigationBar)
-        .task {
-            let blocks = (try? await model.store.blocks(noteId: noteId)) ?? []
-            segments = NoteDocument.segments(from: blocks)
-            lastSaved = segments
-            loaded = true
-            if NoteDocument.isBlank(segments) { focus = segments.first?.id }
-        }
+        // Not .task: SwiftUI cancels it during navigation and does not restart it, which left notes unloaded.
+        .onAppear { Task { await load() } }
         .onChange(of: segments) {
             guard loaded, segments != lastSaved else { return }
             saveTask?.cancel()
@@ -145,13 +154,38 @@ struct EditorView: View {
         segments.replaceSubrange((index - 1)...(index + 1), with: [.text(id: beforeId, joined)])
     }
 
+    // MARK: Loading
+
+    /// A failed read must never turn into an empty note.
+    /// The editor stays locked and tries again; only a successful read unlocks it.
+    /// Runs as its own task, so leaving and re-entering the screen cannot cancel it half way.
+    private func load() async {
+        guard !loaded, !loading else { return }
+        loading = true
+        loadFailed = false
+        defer { loading = false }
+        for attempt in 0..<4 {
+            do {
+                let blocks = try await model.store.blocks(noteId: noteId)
+                segments = NoteDocument.segments(from: blocks)
+                lastSaved = segments
+                loaded = true
+                if NoteDocument.isBlank(segments) { focus = segments.first?.id }
+                return
+            } catch {
+                try? await Task.sleep(for: .milliseconds(150 * (attempt + 1)))
+            }
+        }
+        loadFailed = true
+    }
+
     // MARK: Saving
 
     private func save() async {
         let current = segments
         try? await model.store.saveNote(id: noteId, blocks: NoteDocument.blocks(from: current, noteId: noteId))
         lastSaved = current
-        await model.reloadNotes()
+        await model.reloadAfterEdit()
     }
 
     private func finish(id: UUID, segments: [Segment], wasLoaded: Bool) async {
@@ -160,7 +194,7 @@ struct EditorView: View {
             await model.discardIfEmpty(id)
         } else if segments != lastSaved {
             try? await model.store.saveNote(id: id, blocks: NoteDocument.blocks(from: segments, noteId: id))
-            await model.reloadNotes()
+            await model.reloadAfterEdit()
         }
     }
 }

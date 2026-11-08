@@ -94,6 +94,12 @@ final class AppModel {
         }
     }
 
+    /// After a note is saved its folder moved up too, so folder order and counts refresh with the notes.
+    func reloadAfterEdit() async {
+        if let fresh = try? await store.folders() { folders = fresh }
+        await reloadNotes()
+    }
+
     func reloadTrash() async {
         trash = (try? await store.trash()) ?? TrashContents(folders: [], notes: [])
     }
