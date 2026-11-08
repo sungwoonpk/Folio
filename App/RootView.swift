@@ -9,12 +9,13 @@ struct RootView: View {
             columnVisibility: Binding(get: { nav.columns }, set: { nav.columns = $0 }),
             preferredCompactColumn: Binding(get: { nav.compactColumn }, set: { nav.compactColumn = $0 })
         ) {
-            NavigationStack {
+            NavigationStack(path: Binding(get: { nav.path }, set: { nav.path = $0 })) {
                 HomeView()
-                    .navigationDestination(
-                        isPresented: Binding(get: { nav.showTrash }, set: { nav.showTrash = $0 })
-                    ) {
-                        TrashScreen()
+                    .navigationDestination(for: Route.self) { route in
+                        switch route {
+                        case .folder(let id): FolderScreen(folderId: id)
+                        case .trash: TrashScreen()
+                        }
                     }
             }
         } detail: {

@@ -1,34 +1,7 @@
 import NoteCore
 import SwiftUI
 
-/// Accepts dragged notes and folders and moves them into `folderId` (nil = top level).
-private struct ItemDrop: ViewModifier {
-    let folderId: UUID?
-    let key: String
-    @Binding var highlight: String?
-    @Environment(AppModel.self) private var model
-
-    func body(content: Content) -> some View {
-        content.dropDestination(for: ItemRef.self) { items, _ in
-            Task { await model.drop(items, onto: folderId) }
-            return true
-        } isTargeted: { targeted in
-            if targeted {
-                highlight = key
-            } else if highlight == key {
-                highlight = nil
-            }
-        }
-    }
-}
-
-private extension View {
-    func acceptsItems(into folderId: UUID?, key: String, highlight: Binding<String?>) -> some View {
-        modifier(ItemDrop(folderId: folderId, key: key, highlight: highlight))
-    }
-}
-
-/// Home: folders on top, notes without a folder below.
+/// Main screen: only folders. Tap one to go inside, where the notes are.
 struct HomeView: View {
     @Environment(AppModel.self) private var model
     @Environment(Nav.self) private var nav
@@ -39,10 +12,10 @@ struct HomeView: View {
     @State private var nameText = ""
     @State private var renaming: Folder?
     @State private var movingFolder: Folder?
-    @State private var movingNote: Note?
     @State private var movingPicked = false
-    /// Which drop target is under the finger: "folders", "notes", or a folder id.
     @State private var dropHighlight: String?
+
+    private var folders: [Folder] { model.subfolders(of: nil) }
 
     private var headerTitle: String {
         guard model.selecting else { return "Note" }
@@ -54,7 +27,7 @@ struct HomeView: View {
         VStack(spacing: 0) {
             Header(title: headerTitle) { actions }
             SearchField(text: $model.query)
-            if model.isSearching { searchList } else { homeList }
+            if model.isSearching { searchList } else { folderList }
         }
         .background(Theme.paper)
         .toolbar(.hidden, for: .navigationBar)
@@ -63,6 +36,7 @@ struct HomeView: View {
             do { try await Task.sleep(for: .milliseconds(120)) } catch { return }
             await model.reloadNotes()
         }
+        .onDisappear { model.endSelection() }
         .alert("New Folder", isPresented: $showNewFolder) {
             TextField("Name", text: $nameText)
             Button("Create") { Task { await model.createFolder(name: nameText, parentId: newFolderParent) } }
@@ -77,17 +51,12 @@ struct HomeView: View {
         }
         .sheet(isPresented: $showSettings) { SettingsView() }
         .sheet(item: $movingFolder) { folder in
-            MovePicker(title: "Move", excluding: folder.id, current: folder.parentId) { target in
+            MovePicker(title: "Move", rootTitle: "Note", excluding: folder.id, current: folder.parentId) { target in
                 Task { await model.moveFolder(folder.id, to: target) }
             }
         }
-        .sheet(item: $movingNote) { note in
-            MovePicker(title: "Move", current: note.folderId) { target in
-                Task { await model.moveNote(note.id, to: target) }
-            }
-        }
         .sheet(isPresented: $movingPicked) {
-            MovePicker(title: "Move", current: nil) { target in
+            MovePicker(title: "Move", rootTitle: "Note") { target in
                 Task { await model.movePicked(to: target) }
             }
         }
@@ -98,73 +67,53 @@ struct HomeView: View {
     @ViewBuilder
     private var actions: some View {
         if model.selecting {
-            Button(model.allPicked ? "None" : "All") { model.toggleAll() }
+            Button(model.allPicked(notes: [], folders: folders) ? "None" : "All") {
+                model.toggleAll(notes: [], folders: folders)
+            }
             IconButton(systemName: "folder", label: "Move") { movingPicked = true }
                 .disabled(model.pickedCount == 0)
             IconButton(systemName: "trash", label: "Delete") { Task { await model.trashPicked() } }
                 .disabled(model.pickedCount == 0)
             Button("Done") { model.endSelection() }
         } else {
-            IconButton(systemName: "checkmark.circle", label: "Select") { model.selecting = true }
-                .disabled(model.notes.isEmpty && model.folders.isEmpty)
+            Button("Select") { model.selecting = true }.disabled(folders.isEmpty)
             IconButton(systemName: "folder.badge.plus", label: "New Folder") {
                 newFolderParent = nil
                 nameText = ""
                 showNewFolder = true
             }
-            IconButton(systemName: "square.and.pencil", label: "New Note") { newNote(in: nil) }
             IconButton(systemName: "gearshape", label: "Settings") { showSettings = true }
-        }
-    }
-
-    private func newNote(in folderId: UUID?) {
-        Task {
-            await model.createNote(in: folderId)
-            nav.compactColumn = .detail
         }
     }
 
     // MARK: Lists
 
-    private var homeList: some View {
+    private var folderList: some View {
         List {
             Section {
-                ForEach(model.folderRows) { row in
-                    switch row {
-                    case .folder(let folder, let depth): folderRow(folder, depth: depth)
-                    case .note(let note, let depth): noteRow(note, depth: depth)
-                    }
-                }
-                trashRow
-            } header: {
-                // Drop here to take a folder or note out of its folder.
-                sectionHeader("FOLDERS", key: "folders")
-                    .acceptsItems(into: nil, key: "folders", highlight: $dropHighlight)
+                notesRow
+                ForEach(folders) { folder in folderRow(folder) }
             }
-
-            Section {
-                ForEach(model.looseNotes) { note in noteRow(note, depth: 0) }
-            } header: {
-                sectionHeader("NOTES", key: "notes")
-                    .acceptsItems(into: nil, key: "notes", highlight: $dropHighlight)
-            }
+            // Trash stays out of the way, at the very bottom.
+            Section { trashRow }
         }
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
-        .overlay {
-            if model.notes.isEmpty && model.folders.isEmpty {
-                ContentUnavailableView {
-                    Label("No Notes", systemImage: "note.text")
-                } actions: {
-                    Button("New Note") { newNote(in: nil) }
-                }
-            }
-        }
     }
 
     private var searchList: some View {
         List {
-            ForEach(model.notes) { note in noteRow(note, depth: 0) }
+            ForEach(model.notes) { note in
+                Button {
+                    model.selectedNoteId = note.id
+                    nav.compactColumn = .detail
+                } label: {
+                    NoteRow(note: note)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
         }
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
@@ -175,43 +124,45 @@ struct HomeView: View {
         }
     }
 
-    private func sectionHeader(_ title: String, key: String) -> some View {
-        let targeted = dropHighlight == key
-        return Text(title)
-            .font(Theme.meta)
-            .foregroundStyle(targeted ? Theme.accent : Color.secondary)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.vertical, 6)
-            .background(targeted ? Theme.accent.opacity(0.15) : Color.clear)
-            .contentShape(Rectangle())
-    }
-
     // MARK: Rows
 
-    private func folderRow(_ folder: Folder, depth: Int) -> some View {
-        let isOpen = model.expanded.contains(folder.id)
-        return Button {
+    /// Notes that are not in any folder. Always there, so writing never needs a folder.
+    private var notesRow: some View {
+        Button {
+            nav.path.append(.folder(nil))
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "note.text").foregroundStyle(Theme.accent).frame(width: 22)
+                Text("Notes").font(Theme.serifBody)
+                Spacer()
+                Text("\(model.notes(in: nil).count)").font(Theme.meta).foregroundStyle(.secondary)
+                Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.tertiary)
+            }
+            .padding(.vertical, 6)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .listRowSeparator(.hidden)
+        .listRowBackground(dropHighlight == "notes" ? Theme.accent.opacity(0.18) : Color.clear)
+        .acceptsItems(into: nil, key: "notes", highlight: $dropHighlight)
+    }
+
+    private func folderRow(_ folder: Folder) -> some View {
+        Button {
             if model.selecting {
                 model.toggleFolder(folder.id)
             } else {
-                withAnimation(.snappy(duration: 0.2)) {
-                    if isOpen { model.expanded.remove(folder.id) } else { model.expanded.insert(folder.id) }
-                }
+                nav.path.append(.folder(folder.id))
             }
         } label: {
-            HStack(spacing: 10) {
+            HStack(spacing: 12) {
                 if model.selecting { SelectMark(picked: model.pickedFolders.contains(folder.id)) }
-                Image(systemName: "chevron.right")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                    .rotationEffect(.degrees(isOpen ? 90 : 0))
-                    .frame(width: 14)
-                Image(systemName: isOpen ? "folder.fill" : "folder").foregroundStyle(Theme.accent)
+                Image(systemName: "folder").foregroundStyle(Theme.accent).frame(width: 22)
                 Text(folder.name).font(Theme.serifBody)
                 Spacer()
-                Text("\(model.noteCount(in: folder.id))").font(Theme.meta).foregroundStyle(.secondary)
+                Text("\(model.itemCount(in: folder.id))").font(Theme.meta).foregroundStyle(.secondary)
+                Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.tertiary)
             }
-            .padding(.leading, CGFloat(depth) * 20)
             .padding(.vertical, 6)
             .contentShape(Rectangle())
         }
@@ -226,7 +177,6 @@ struct HomeView: View {
             }
         }
         .contextMenu {
-            Button("New Note", systemImage: "square.and.pencil") { newNote(in: folder.id) }
             Button("New Folder", systemImage: "folder.badge.plus") {
                 newFolderParent = folder.id
                 nameText = ""
@@ -246,66 +196,18 @@ struct HomeView: View {
         }
     }
 
-    private func noteRow(_ note: Note, depth: Int) -> some View {
-        let open = !model.selecting && model.selectedNoteId == note.id
-        return Button {
-            if model.selecting {
-                model.toggleNote(note.id)
-            } else {
-                model.selectedNoteId = note.id
-                nav.compactColumn = .detail
-            }
-        } label: {
-            HStack(spacing: 10) {
-                if model.selecting { SelectMark(picked: model.pickedNotes.contains(note.id)) }
-                NoteRow(note: note)
-                Spacer(minLength: 0)
-            }
-            .padding(.leading, depth > 0 ? CGFloat(depth) * 20 + 24 : 0)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .listRowBackground(open ? Theme.accent.opacity(0.12) : Color.clear)
-        .draggable(ItemRef(kind: .note, id: note.id))
-        // Dropping on a note lands in that note's folder (or the top level).
-        .acceptsItems(into: note.folderId, key: "note-\(note.id.uuidString)", highlight: $dropHighlight)
-        .swipeActions(edge: .trailing) {
-            Button("Delete", systemImage: "trash", role: .destructive) {
-                Task { await model.trashNote(note.id) }
-            }
-        }
-        .swipeActions(edge: .leading) {
-            Button(note.pinned ? "Unpin" : "Pin", systemImage: note.pinned ? "pin.slash" : "pin") {
-                Task { await model.togglePin(note) }
-            }
-            .tint(Theme.accent)
-        }
-        .contextMenu {
-            Button(note.pinned ? "Unpin" : "Pin", systemImage: note.pinned ? "pin.slash" : "pin") {
-                Task { await model.togglePin(note) }
-            }
-            Button("Move", systemImage: "folder") { movingNote = note }
-            Button("Duplicate", systemImage: "plus.square.on.square") {
-                Task { await model.duplicateNote(note.id) }
-            }
-            Button("Delete", systemImage: "trash", role: .destructive) {
-                Task { await model.trashNote(note.id) }
-            }
-        }
-    }
-
     private var trashRow: some View {
         let count = model.trash.folders.count + model.trash.notes.count
         return Button {
-            nav.showTrash = true
+            nav.path.append(.trash)
         } label: {
-            HStack(spacing: 10) {
-                Image(systemName: "chevron.right").font(.caption.weight(.semibold)).hidden().frame(width: 14)
-                Image(systemName: "trash").foregroundStyle(Theme.accent)
+            HStack(spacing: 12) {
+                Image(systemName: "trash").frame(width: 22)
                 Text("Trash").font(Theme.serifBody)
                 Spacer()
-                if count > 0 { Text("\(count)").font(Theme.meta).foregroundStyle(.secondary) }
+                if count > 0 { Text("\(count)").font(Theme.meta) }
             }
+            .foregroundStyle(.secondary)
             .padding(.vertical, 6)
             .contentShape(Rectangle())
         }

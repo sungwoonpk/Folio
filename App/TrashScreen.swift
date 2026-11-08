@@ -20,7 +20,7 @@ struct TrashScreen: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            Header(title: title, leading: ("chevron.left", "Home", { nav.showTrash = false })) { actions }
+            Header(title: title, leading: ("chevron.left", "Home", { nav.back() })) { actions }
             list
         }
         .background(Theme.paper)

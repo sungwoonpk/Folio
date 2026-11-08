@@ -1,13 +1,24 @@
 import NoteCore
 import SwiftUI
 
+/// Screens pushed on top of the main folder list.
+enum Route: Hashable {
+    /// A folder's contents. nil is "Notes", the notes that are not in any folder.
+    case folder(UUID?)
+    case trash
+}
+
 /// Column navigation state. We draw our own headers, so we also drive back and sidebar toggles.
 @MainActor @Observable
 final class Nav {
     var columns: NavigationSplitViewVisibility = .automatic
-    /// iPhone opens on the home screen.
+    /// iPhone opens on the main screen.
     var compactColumn: NavigationSplitViewColumn = .sidebar
-    var showTrash = false
+    var path: [Route] = []
+
+    func back() {
+        if !path.isEmpty { path.removeLast() }
+    }
 }
 
 /// Plain icon button. No circle, no glass.
@@ -126,6 +137,8 @@ struct MovePicker: View {
     @Environment(\.dismiss) private var dismiss
 
     let title: String
+    /// Name of the top-level choice: "Notes" for notes, "Note" for folders.
+    var rootTitle: String = "Notes"
     var excluding: UUID?
     var current: UUID?
     let onPick: (UUID?) -> Void
@@ -133,7 +146,7 @@ struct MovePicker: View {
     var body: some View {
         NavigationStack {
             List {
-                row("Home", systemImage: "house", depth: 0, target: nil)
+                row(rootTitle, systemImage: "house", depth: 0, target: nil)
                 ForEach(model.moveTargets(excluding: excluding), id: \.folder.id) { item in
                     row(item.folder.name, systemImage: "folder", depth: item.depth + 1, target: item.folder.id)
                 }
@@ -161,5 +174,39 @@ struct MovePicker: View {
             .padding(.leading, CGFloat(depth) * 18)
         }
         .foregroundStyle(.primary)
+    }
+}
+
+/// Accepts dragged notes and folders and moves them into `folderId` (nil = top level).
+struct ItemDrop: ViewModifier {
+    let folderId: UUID?
+    let key: String
+    let enabled: Bool
+    @Binding var highlight: String?
+    @Environment(AppModel.self) private var model
+
+    func body(content: Content) -> some View {
+        if enabled {
+            content.dropDestination(for: ItemRef.self) { items, _ in
+                Task { await model.drop(items, onto: folderId) }
+                return true
+            } isTargeted: { targeted in
+                if targeted {
+                    highlight = key
+                } else if highlight == key {
+                    highlight = nil
+                }
+            }
+        } else {
+            content
+        }
+    }
+}
+
+extension View {
+    func acceptsItems(
+        into folderId: UUID?, key: String, enabled: Bool = true, highlight: Binding<String?>
+    ) -> some View {
+        modifier(ItemDrop(folderId: folderId, key: key, enabled: enabled, highlight: highlight))
     }
 }

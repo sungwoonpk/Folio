@@ -15,18 +15,6 @@ struct ItemRef: Codable, Hashable, Transferable {
     }
 }
 
-enum HomeRow: Identifiable {
-    case folder(Folder, depth: Int)
-    case note(Note, depth: Int)
-
-    var id: UUID {
-        switch self {
-        case .folder(let folder, _): folder.id
-        case .note(let note, _): note.id
-        }
-    }
-}
-
 @MainActor @Observable
 final class AppModel {
     let store: NoteStore
@@ -38,9 +26,8 @@ final class AppModel {
 
     var selectedNoteId: UUID?
     var query = ""
-    var expanded: Set<UUID> = []
 
-    // Multi-select on the home screen.
+    // Multi-select, used by the screen currently showing.
     var selecting = false
     var pickedNotes: Set<UUID> = []
     var pickedFolders: Set<UUID> = []
@@ -61,30 +48,18 @@ final class AppModel {
 
     var isSearching: Bool { !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
 
-    // MARK: Home layout
+    // MARK: Screen contents
 
-    /// Folders section: folders by recent change, open folders show subfolders then their notes.
-    var folderRows: [HomeRow] {
-        func rows(parent: UUID?, depth: Int) -> [HomeRow] {
-            var out: [HomeRow] = []
-            for folder in folders where folder.parentId == parent {
-                out.append(.folder(folder, depth: depth))
-                if expanded.contains(folder.id) {
-                    out += rows(parent: folder.id, depth: depth + 1)
-                    for note in notes where note.folderId == folder.id {
-                        out.append(.note(note, depth: depth + 1))
-                    }
-                }
-            }
-            return out
-        }
-        return rows(parent: nil, depth: 0)
-    }
+    /// Folders directly inside `parent` (nil = main screen), most recently changed first.
+    func subfolders(of parent: UUID?) -> [Folder] { folders.filter { $0.parentId == parent } }
 
-    /// Notes without a folder, shown below the folders.
-    var looseNotes: [Note] { notes.filter { $0.folderId == nil } }
+    /// Notes directly inside a folder (nil = notes without a folder).
+    func notes(in folderId: UUID?) -> [Note] { notes.filter { $0.folderId == folderId } }
 
-    func noteCount(in folderId: UUID) -> Int { notes.filter { $0.folderId == folderId }.count }
+    func folder(_ id: UUID?) -> Folder? { id.flatMap { id in folders.first { $0.id == id } } }
+
+    /// Notes and subfolders directly inside a folder.
+    func itemCount(in folderId: UUID) -> Int { notes(in: folderId).count + subfolders(of: folderId).count }
 
     // MARK: Loading
 
@@ -117,7 +92,6 @@ final class AppModel {
         let trimmed = name.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty else { return }
         _ = try? await store.createFolder(name: trimmed, parentId: parentId)
-        if let parentId { expanded.insert(parentId) }
         await reloadAll()
     }
 
@@ -130,7 +104,6 @@ final class AppModel {
 
     func moveFolder(_ id: UUID, to parentId: UUID?) async {
         try? await store.moveFolder(id: id, to: parentId)
-        if let parentId { expanded.insert(parentId) }
         await reloadAll()
     }
 
@@ -146,18 +119,16 @@ final class AppModel {
 
     // MARK: Note actions
 
-    /// New note. `folderId` nil puts it at the top level, no folder needed.
+    /// New note. `folderId` nil puts it in "Notes", no folder needed.
     func createNote(in folderId: UUID? = nil) async {
         guard let note = try? await store.createNote(folderId: folderId) else { return }
         query = ""
-        if let folderId { expanded.insert(folderId) }
         await reloadAll()
         selectedNoteId = note.id
     }
 
     func moveNote(_ id: UUID, to folderId: UUID?) async {
         try? await store.moveNote(id: id, to: folderId)
-        if let folderId { expanded.insert(folderId) }
         await reloadAll()
     }
 
@@ -186,7 +157,7 @@ final class AppModel {
 
     // MARK: Drag and drop
 
-    /// Drop onto a folder moves into it. Drop onto the top level (folderId nil) moves out of any folder.
+    /// Drop onto a folder moves into it. Drop with folderId nil moves to the top level.
     func drop(_ items: [ItemRef], onto folderId: UUID?) async {
         for item in items {
             switch item.kind {
@@ -197,7 +168,6 @@ final class AppModel {
                 try? await store.moveFolder(id: item.id, to: folderId)
             }
         }
-        if let folderId { expanded.insert(folderId) }
         await reloadAll()
     }
 
@@ -219,33 +189,21 @@ final class AppModel {
 
     var pickedCount: Int { pickedNotes.count + pickedFolders.count }
 
-    /// Everything visible on the home list.
-    private var visibleNoteIDs: Set<UUID> {
-        if isSearching { return Set(notes.map(\.id)) }
-        var ids = Set(looseNotes.map(\.id))
-        for case .note(let note, _) in folderRows { ids.insert(note.id) }
-        return ids
-    }
-
-    private var visibleFolderIDs: Set<UUID> {
-        isSearching ? [] : Set(folderRows.compactMap { row -> UUID? in
-            if case .folder(let folder, _) = row { return folder.id }
-            return nil
-        })
-    }
-
-    var allPicked: Bool {
-        pickedCount > 0 && pickedNotes == visibleNoteIDs && pickedFolders == visibleFolderIDs
-    }
-
-    func toggleAll() {
-        if allPicked {
+    /// Select everything on a screen, or clear if it is all selected already.
+    func toggleAll(notes: [Note], folders: [Folder]) {
+        let noteIDs = Set(notes.map(\.id))
+        let folderIDs = Set(folders.map(\.id))
+        if pickedCount > 0, pickedNotes == noteIDs, pickedFolders == folderIDs {
             pickedNotes = []
             pickedFolders = []
         } else {
-            pickedNotes = visibleNoteIDs
-            pickedFolders = visibleFolderIDs
+            pickedNotes = noteIDs
+            pickedFolders = folderIDs
         }
+    }
+
+    func allPicked(notes: [Note], folders: [Folder]) -> Bool {
+        pickedCount > 0 && pickedNotes == Set(notes.map(\.id)) && pickedFolders == Set(folders.map(\.id))
     }
 
     func trashPicked() async {
@@ -258,7 +216,6 @@ final class AppModel {
     func movePicked(to folderId: UUID?) async {
         for id in pickedFolders where id != folderId { try? await store.moveFolder(id: id, to: folderId) }
         for id in pickedNotes { try? await store.moveNote(id: id, to: folderId) }
-        if let folderId { expanded.insert(folderId) }
         endSelection()
         await reloadAll()
     }
