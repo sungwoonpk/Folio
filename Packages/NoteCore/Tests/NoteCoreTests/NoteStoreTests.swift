@@ -74,6 +74,51 @@ final class NoteStoreTests: XCTestCase {
         XCTAssertEqual(all.count, 4)
     }
 
+    // MARK: Ordering
+
+    func testFoldersAndNotesSortByMostRecentlyModified() async throws {
+        let store = try makeStore()
+        let a = try await store.createFolder(name: "A")
+        try await Task.sleep(nanoseconds: 5_000_000)
+        let b = try await store.createFolder(name: "B")
+        var order = try await store.folders().map(\.id)
+        XCTAssertEqual(order, [b.id, a.id], "newest folder first")
+
+        try await Task.sleep(nanoseconds: 5_000_000)
+        let inA = try await store.createNote(folderId: a.id)
+        try await write(store, inA, ["edited in A"])
+        order = try await store.folders().map(\.id)
+        XCTAssertEqual(order, [a.id, b.id], "editing a note moves its folder up")
+
+        try await Task.sleep(nanoseconds: 5_000_000)
+        try await store.renameFolder(id: b.id, to: "B2")
+        order = try await store.folders().map(\.id)
+        XCTAssertEqual(order, [b.id, a.id], "renaming moves a folder up")
+
+        let first = try await store.createNote()
+        try await write(store, first, ["first"])
+        try await Task.sleep(nanoseconds: 5_000_000)
+        let second = try await store.createNote()
+        try await write(store, second, ["second"])
+        var notes = try await store.notes(in: .all).map(\.id)
+        XCTAssertEqual(notes.first, second.id)
+        try await Task.sleep(nanoseconds: 5_000_000)
+        try await write(store, first, ["first, edited"])
+        notes = try await store.notes(in: .all).map(\.id)
+        XCTAssertEqual(notes.first, first.id, "editing a note moves it to the top")
+    }
+
+    func testNotesWorkWithoutAnyFolder() async throws {
+        let store = try makeStore()
+        let note = try await store.createNote()
+        try await write(store, note, ["no folder needed"])
+        let all = try await store.notes(in: .all)
+        XCTAssertEqual(all.map(\.id), [note.id])
+        XCTAssertNil(all.first?.folderId)
+        let folders = try await store.folders()
+        XCTAssertTrue(folders.isEmpty)
+    }
+
     // MARK: Notes
 
     func testMoveDuplicatePinNote() async throws {

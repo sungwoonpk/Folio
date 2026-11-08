@@ -34,7 +34,8 @@ public final class NoteStore: Sendable {
 
     public func folders() async throws -> [Folder] {
         try await writer.read { db in
-            try Folder.filter(Column("deletedAt") == nil).order(Column("sortOrder"), Column("name")).fetchAll(db)
+            // Most recently modified first, at every level of the tree.
+            try Folder.filter(Column("deletedAt") == nil).order(Column("updatedAt").desc, Column("name")).fetchAll(db)
         }
     }
 
@@ -65,9 +66,12 @@ public final class NoteStore: Sendable {
             if let parentId, try Self.subtreeIDs(db, root: id).contains(parentId) {
                 throw NoteStoreError.invalidMove
             }
+            let oldParent = folder.parentId
             folder.parentId = parentId
             folder.updatedAt = Date()
             try folder.update(db)
+            try Self.touchFolders(db, from: oldParent)
+            try Self.touchFolders(db, from: parentId)
         }
     }
 
@@ -168,6 +172,7 @@ public final class NoteStore: Sendable {
             try note.insert(db)
             var block = Block(noteId: note.id)
             try block.insert(db)
+            try Self.touchFolders(db, from: folderId)
             return note
         }
     }
@@ -190,6 +195,7 @@ public final class NoteStore: Sendable {
             note.updatedAt = Date()
             try note.update(db)
             try Self.reindex(db, noteId: id)
+            try Self.touchFolders(db, from: note.folderId)
         }
     }
 
@@ -201,7 +207,10 @@ public final class NoteStore: Sendable {
 
     public func moveNote(id: UUID, to folderId: UUID?) async throws {
         try await writer.write { db in
+            let old = try Note.fetchOne(db, key: id)?.folderId
             try Note.filter(Column("id") == id).updateAll(db, Column("folderId").set(to: folderId))
+            try Self.touchFolders(db, from: old)
+            try Self.touchFolders(db, from: folderId)
         }
     }
 
@@ -333,6 +342,17 @@ public final class NoteStore: Sendable {
     }
 
     // MARK: - Helpers
+
+    /// Marks a folder and its ancestors as modified now, so recency sorting follows the notes inside.
+    static func touchFolders(_ db: Database, from folderId: UUID?) throws {
+        let now = Date()
+        var current = folderId
+        while let id = current {
+            guard let folder = try Folder.fetchOne(db, key: id) else { break }
+            try Folder.filter(Column("id") == id).updateAll(db, Column("updatedAt").set(to: now))
+            current = folder.parentId
+        }
+    }
 
     /// The folder and all descendants, parents before children.
     static func subtreeIDs(_ db: Database, root: UUID) throws -> [UUID] {
