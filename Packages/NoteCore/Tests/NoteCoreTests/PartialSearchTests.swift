@@ -3,6 +3,7 @@ import XCTest
 
 /// "Test3" must be found by "est", "3", "test", "TEST", not only by the full word.
 final class PartialSearchTests: XCTestCase {
+    // "프로젝트" is Korean test data on purpose: folder search must match inside Korean words too.
     func testFoldersMatchAnyPartOfTheNameInAnyCase() {
         let folders = [Folder(name: "Test3"), Folder(name: "Work"), Folder(name: "프로젝트")]
         for query in ["Test3", "est", "3", "test", "TEST", "t3", "  test  "] {
