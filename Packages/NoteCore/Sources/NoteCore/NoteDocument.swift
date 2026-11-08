@@ -64,8 +64,16 @@ public enum Segment: Equatable, Identifiable, Sendable {
 
 /// Converts between stored blocks and editor segments.
 /// A bullet line is shown as "• text" in the editor and stored as a bullet block without the prefix.
+/// A checklist line is "☐ text" or "☑ text" and stored as a checklist block, checked ones with meta "done".
 public enum NoteDocument {
     public static let bulletPrefix = "• "
+    public static let uncheckedPrefix = "☐ "
+    public static let checkedPrefix = "☑ "
+    /// Marks a checked checklist block.
+    public static let doneMeta = "done"
+
+    /// Every prefix that makes a line a list item.
+    public static var listPrefixes: [String] { [bulletPrefix, uncheckedPrefix, checkedPrefix] }
 
     /// Always starts and ends with a text segment, and has a text segment between any two tables,
     /// so there is always somewhere to put the cursor.
@@ -80,6 +88,8 @@ public enum NoteDocument {
                 segments.append(.table(id: UUID(), TableContent.decode(block.meta) ?? .blank()))
             case .bullet:
                 lines.append(bulletPrefix + block.content)
+            case .checklist:
+                lines.append((block.meta == doneMeta ? checkedPrefix : uncheckedPrefix) + block.content)
             default:
                 lines.append(block.content)
             }
@@ -96,6 +106,15 @@ public enum NoteDocument {
                 for line in text.components(separatedBy: "\n") {
                     if line.hasPrefix(bulletPrefix) {
                         blocks.append(Block(noteId: noteId, kind: .bullet, content: String(line.dropFirst(bulletPrefix.count))))
+                    } else if line.hasPrefix(checkedPrefix) {
+                        blocks.append(Block(
+                            noteId: noteId, kind: .checklist,
+                            content: String(line.dropFirst(checkedPrefix.count)), meta: doneMeta
+                        ))
+                    } else if line.hasPrefix(uncheckedPrefix) {
+                        blocks.append(Block(
+                            noteId: noteId, kind: .checklist, content: String(line.dropFirst(uncheckedPrefix.count))
+                        ))
                     } else {
                         blocks.append(Block(noteId: noteId, kind: .text, content: line))
                     }
