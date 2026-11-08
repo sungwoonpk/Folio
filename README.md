@@ -4,7 +4,7 @@ A fast, quiet notes app for iPhone. Everything stays on the phone. Built with Sw
 
 ## Why
 
-Other note apps kept getting in the way.
+I built Note because I wanted to use it. The note apps I tried kept getting in the way.
 
 | What went wrong | What Note does |
 | --- | --- |
