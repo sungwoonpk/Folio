@@ -100,7 +100,7 @@ struct SearchField: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 9)
-        .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: Theme.corner, style: .continuous))
         .padding(.horizontal, 16)
         .padding(.bottom, 8)
     }

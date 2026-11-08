@@ -105,6 +105,13 @@ struct FolderScreen: View {
 
     // MARK: List
 
+    private func sectionTitle(_ text: String) -> some View {
+        Text(text)
+            .font(.system(.subheadline, design: .serif, weight: .bold))
+            .foregroundStyle(.primary)
+            .textCase(nil)
+    }
+
     private var list: some View {
         List {
             if !subfolders.isEmpty {
@@ -114,16 +121,15 @@ struct FolderScreen: View {
                             Task { await model.moveFolders(in: folderId, from: source, to: destination) }
                         }
                 } header: {
-                    Text("FOLDERS").font(Theme.meta).foregroundStyle(.secondary)
+                    sectionTitle("Folders")
                 }
             }
-            if !notes.isEmpty {
+            // Notes by last change: Today, Last 7 Days, Last 30 Days, months, years.
+            ForEach(NoteGrouping.sections(notes)) { section in
                 Section {
-                    ForEach(notes) { note in noteRow(note) }
+                    ForEach(section.notes) { note in noteRow(note) }
                 } header: {
-                    if !subfolders.isEmpty {
-                        Text("NOTES").font(Theme.meta).foregroundStyle(.secondary)
-                    }
+                    sectionTitle(section.title)
                 }
             }
         }
@@ -197,7 +203,11 @@ struct FolderScreen: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .listRowBackground(open ? Theme.accent.opacity(0.12) : Color.clear)
+        .listRowBackground(
+            RoundedRectangle(cornerRadius: Theme.corner, style: .continuous)
+                .fill(open ? Theme.accent.opacity(0.12) : Color.clear)
+                .padding(.horizontal, 8)
+        )
         .draggableItem(ItemRef(kind: .note, id: note.id), enabled: !model.selecting)
         .swipeActions(edge: .trailing) {
             Button("Delete", systemImage: "trash", role: .destructive) {
