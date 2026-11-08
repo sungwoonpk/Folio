@@ -27,6 +27,8 @@ struct IconButton: View {
     /// Used instead of the system symbol when set.
     var image: Image?
     var label: String = ""
+    /// What the button currently shows, read out by VoiceOver and checked by tests.
+    var value: String = ""
     let action: () -> Void
     @Environment(\.isEnabled) private var isEnabled
 
@@ -40,6 +42,7 @@ struct IconButton: View {
         .buttonStyle(.plain)
         .opacity(isEnabled ? 1 : 0.3)
         .accessibilityLabel(label.isEmpty ? systemName : label)
+        .accessibilityValue(value)
     }
 }
 

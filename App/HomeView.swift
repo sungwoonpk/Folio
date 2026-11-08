@@ -13,7 +13,8 @@ struct HomeView: View {
     @State private var movingSearchNote: Note?
 
     private var folders: [Folder] { model.subfolders(of: nil) }
-    private var appearance: Appearance { Appearance(rawValue: appearanceRaw) ?? .system }
+    /// The mode actually on screen, whether the user chose it or the phone did.
+    @Environment(\.colorScheme) private var scheme
 
     private var headerTitle: String {
         guard model.selecting else { return "Note" }
@@ -79,7 +80,13 @@ struct HomeView: View {
                 model.query = ""
                 model.selecting = true
             }
-            IconButton(systemName: appearance.icon, label: "Appearance") { appearanceRaw = appearance.next.rawValue }
+            // Two states only, what you see and its opposite: sun while light, moon while dark.
+            IconButton(
+                systemName: scheme == .dark ? "moon" : "sun.max", label: "Appearance",
+                value: scheme == .dark ? "Dark" : "Light"
+            ) {
+                appearanceRaw = (scheme == .dark ? Appearance.light : Appearance.dark).rawValue
+            }
         }
     }
 

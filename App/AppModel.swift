@@ -26,6 +26,10 @@ final class AppModel {
     init() {
         let database: AppDatabase
         let args = ProcessInfo.processInfo.arguments
+        if args.contains("-ui-testing") {
+            // Tests always start in System mode, whatever an earlier run left behind.
+            UserDefaults.standard.removeObject(forKey: SettingsKey.appearance)
+        }
         do {
             if let path = UserDefaults.standard.string(forKey: "ui-testing-db") {
                 // UI tests that must survive a relaunch: a database file at a path the test chose.

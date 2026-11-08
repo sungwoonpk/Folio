@@ -21,8 +21,8 @@ Built with SwiftUI and SQLite.
 - **A first line that is the title.** It is bold and larger. Everything below is the note.
 - **Bullets, checklists and tables** in the same note. Return continues a list, Return on an empty item ends it. Tap a circle to check an item off.
 - **Search that is forgiving.** `est`, `3`, `test` and `TEST` all find `Test3`. It searches folder names and note text, and works for Korean too.
-- **Recently Deleted.** Deleting a note moves it here. Restoring asks which folder it should go into. Deleting a folder removes the folder and sends its notes here.
-- **Edit mode** on the folder list and on a notes page: select several items to delete or move, drag folders into the order you want.
+- **Recently Deleted.** Deleting a note moves it here. Restoring asks which folder it should go into, and lets you make a new folder right there if none exists. Deleting a folder removes the folder and sends its notes here.
+- **Edit mode** on the folder list and on a notes page: select several items to delete or move, drag folders into the order you want. A search in progress is cleared when you start editing.
 - **Light, dark or follow the phone.** One icon cycles through the three. Plain white and black, with brown for small details.
 - **Autosave.** Nothing to press. A note that is opened and left empty is removed.
 
@@ -39,7 +39,7 @@ Built with SwiftUI and SQLite.
 | Rename, duplicate or delete a folder | Press and hold it |
 | Reorder folders | Edit, then drag the handles |
 | Delete or move many at once | Edit, tick the items, then Delete or Move |
-| Get a deleted note back | Recently Deleted (bottom of the main screen), swipe right or Edit, then choose a folder |
+| Get a deleted note back | Recently Deleted (bottom of the main screen), swipe right or Edit, then choose a folder or make a new one |
 | Change light and dark | The sun/moon icon next to Edit |
 | Find anything | Search field on the main screen |
 
@@ -67,6 +67,8 @@ cd Packages/NoteCore && swift test
 xcodebuild -project Notes.xcodeproj -scheme Notes \
   -destination 'platform=iOS Simulator,name=<an installed iPhone>' test
 ```
+
+The UI tests cover the main flows (folders, notes, bullets, checklists, tables, search, delete and restore, light and dark) and the awkward ones: blank and very long folder names, empty and whitespace-only notes, deleting every folder, a restore with no folder left, two tables in a row, and closing and reopening the app. The unit tests add odd search queries, huge notes, 25 saves at once and midnight boundaries.
 
 UI tests launch the app with `-ui-testing`, which uses an in-memory database, so every test starts from an empty app and cannot depend on another. `-ui-testing-db <path>` uses a database file instead, for a test that needs to relaunch the app.
 
