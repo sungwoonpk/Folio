@@ -134,9 +134,3 @@ The reasoning is written down in [docs/decisions](docs/decisions): [one-level fo
 - **A deleted folder is not kept.** Only notes are recoverable, they are what holds content.
 - **Local first.** No account, no network. Fast to open, nothing to leak.
 - **Plain markers in the text.** Return, backspace and selection behave as people expect, and it still saves as real blocks.
-
-## Status
-
-A working first version for iOS, in English, tested in the iOS Simulator.
-
-**Not done:** sync and sign-in, images, voice notes, numbered lists.
