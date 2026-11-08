@@ -36,6 +36,9 @@ final class AppModel {
         store = NoteStore(database: database)
     }
 
+    /// Folders whose name contains the search text, any case.
+    var matchingFolders: [Folder] { FolderSearch.matching(folders, query: query) }
+
     var isSearching: Bool { !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
 
     // MARK: Screen contents

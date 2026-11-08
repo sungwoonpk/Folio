@@ -107,33 +107,62 @@ struct HomeView: View {
         }
     }
 
+    /// Search finds folders by name and notes by text. Any part of a word matches, any case.
     private var searchList: some View {
         List {
-            ForEach(model.notes) { note in
-                Button {
-                    model.selectedNoteId = note.id
-                    nav.compactColumn = .detail
-                } label: {
-                    NoteRow(note: note)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .contextMenu {
-                    Button("Move", systemImage: "folder") { movingSearchNote = note }
-                    Button("Delete", systemImage: "trash", role: .destructive) {
-                        Task { await model.trashNote(note.id) }
+            if !model.matchingFolders.isEmpty {
+                Section {
+                    ForEach(model.matchingFolders) { folder in
+                        Button {
+                            nav.path.append(.folder(folder.id))
+                        } label: {
+                            FolderCard(title: folder.name, icon: "folder", count: model.noteCount(in: folder.id))
+                        }
+                        .buttonStyle(.plain)
+                        .cardRow()
                     }
+                } header: {
+                    sectionTitle("Folders")
+                }
+            }
+            if !model.notes.isEmpty {
+                Section {
+                    ForEach(model.notes) { note in
+                        Button {
+                            model.selectedNoteId = note.id
+                            nav.compactColumn = .detail
+                        } label: {
+                            NoteRow(note: note)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .contextMenu {
+                            Button("Move", systemImage: "folder") { movingSearchNote = note }
+                            Button("Delete", systemImage: "trash", role: .destructive) {
+                                Task { await model.trashNote(note.id) }
+                            }
+                        }
+                    }
+                } header: {
+                    if !model.matchingFolders.isEmpty { sectionTitle("Notes") }
                 }
             }
         }
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
         .overlay {
-            if model.notes.isEmpty {
+            if model.notes.isEmpty && model.matchingFolders.isEmpty {
                 ContentUnavailableView { Label("No Results", systemImage: "magnifyingglass") }
             }
         }
+    }
+
+    private func sectionTitle(_ text: String) -> some View {
+        Text(text)
+            .font(.system(.subheadline, design: .serif, weight: .bold))
+            .foregroundStyle(.primary)
+            .textCase(nil)
     }
 
     /// Small and out of the way, at the bottom.
