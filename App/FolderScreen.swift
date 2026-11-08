@@ -24,7 +24,7 @@ struct FolderScreen: View {
 
     private var title: String {
         guard model.selecting else { return folderId == nil ? "Notes" : (folder?.name ?? "") }
-        return model.pickedCount == 0 ? "Select" : "\(model.pickedCount) Selected"
+        return model.pickedCount == 0 ? "Edit" : "\(model.pickedCount) Selected"
     }
 
     var body: some View {
@@ -85,7 +85,7 @@ struct FolderScreen: View {
                 .disabled(model.pickedCount == 0)
             Button("Done") { model.endSelection() }
         } else {
-            Button("Select") { model.selecting = true }.disabled(isEmpty)
+            Button("Edit") { model.selecting = true }.disabled(isEmpty)
             if folderId != nil {
                 IconButton(systemName: "folder.badge.plus", label: "New Folder") {
                     nameText = ""
@@ -110,6 +110,9 @@ struct FolderScreen: View {
             if !subfolders.isEmpty {
                 Section {
                     ForEach(subfolders) { sub in subfolderRow(sub) }
+                        .onMove { source, destination in
+                            Task { await model.moveFolders(in: folderId, from: source, to: destination) }
+                        }
                 } header: {
                     Text("FOLDERS").font(Theme.meta).foregroundStyle(.secondary)
                 }
@@ -124,6 +127,7 @@ struct FolderScreen: View {
                 }
             }
         }
+        .environment(\.editMode, .constant(model.selecting ? .active : .inactive))
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
         .overlay {
@@ -159,7 +163,7 @@ struct FolderScreen: View {
         .buttonStyle(.plain)
         .listRowSeparator(.hidden)
         .listRowBackground(dropHighlight == sub.id.uuidString ? Theme.accent.opacity(0.18) : Color.clear)
-        .draggable(ItemRef(kind: .folder, id: sub.id))
+        .draggableItem(ItemRef(kind: .folder, id: sub.id), enabled: !model.selecting)
         .acceptsItems(into: sub.id, key: sub.id.uuidString, highlight: $dropHighlight)
         .swipeActions(edge: .trailing) {
             Button("Delete", systemImage: "trash", role: .destructive) {
@@ -200,7 +204,7 @@ struct FolderScreen: View {
         }
         .buttonStyle(.plain)
         .listRowBackground(open ? Theme.accent.opacity(0.12) : Color.clear)
-        .draggable(ItemRef(kind: .note, id: note.id))
+        .draggableItem(ItemRef(kind: .note, id: note.id), enabled: !model.selecting)
         .swipeActions(edge: .trailing) {
             Button("Delete", systemImage: "trash", role: .destructive) {
                 Task { await model.trashNote(note.id) }

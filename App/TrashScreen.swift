@@ -15,7 +15,7 @@ struct TrashScreen: View {
 
     private var title: String {
         guard selecting else { return "Trash" }
-        return picked.isEmpty ? "Select" : "\(picked.count) Selected"
+        return picked.isEmpty ? "Edit" : "\(picked.count) Selected"
     }
 
     var body: some View {
@@ -54,7 +54,7 @@ struct TrashScreen: View {
                 .disabled(picked.isEmpty)
             Button("Done") { endSelection() }
         } else {
-            Button("Select") { selecting = true }.disabled(isEmpty)
+            Button("Edit") { selecting = true }.disabled(isEmpty)
             Button("Empty") { confirmEmpty = true }.disabled(isEmpty)
         }
     }

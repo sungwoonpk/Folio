@@ -2,6 +2,7 @@ import CoreTransferable
 import Foundation
 import NoteCore
 import Observation
+import SwiftUI
 import UniformTypeIdentifiers
 
 /// What gets dragged between rows.
@@ -100,6 +101,29 @@ final class AppModel {
         guard !trimmed.isEmpty else { return }
         try? await store.renameFolder(id: id, to: trimmed)
         await reloadAll()
+    }
+
+    /// Same order the database uses: unarranged folders first (newest on top), then arranged ones.
+    static func folderOrder(_ a: Folder, _ b: Folder) -> Bool {
+        let aManual = a.sortOrder > 0
+        let bManual = b.sortOrder > 0
+        if aManual != bManual { return !aManual }
+        if aManual { return a.sortOrder < b.sortOrder }
+        if a.updatedAt != b.updatedAt { return a.updatedAt > b.updatedAt }
+        return a.name < b.name
+    }
+
+    /// Drag-to-reorder in Edit mode. Updates the list right away, then saves.
+    func moveFolders(in parent: UUID?, from source: IndexSet, to destination: Int) async {
+        var ordered = subfolders(of: parent)
+        ordered.move(fromOffsets: source, toOffset: destination)
+        for (index, folder) in ordered.enumerated() {
+            if let i = folders.firstIndex(where: { $0.id == folder.id }) {
+                folders[i].sortOrder = Double(index + 1)
+            }
+        }
+        folders.sort(by: Self.folderOrder)
+        try? await store.reorderFolders(ordered.map(\.id))
     }
 
     func moveFolder(_ id: UUID, to parentId: UUID?) async {

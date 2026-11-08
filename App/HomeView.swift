@@ -19,7 +19,7 @@ struct HomeView: View {
 
     private var headerTitle: String {
         guard model.selecting else { return "Note" }
-        return model.pickedCount == 0 ? "Select" : "\(model.pickedCount) Selected"
+        return model.pickedCount == 0 ? "Edit" : "\(model.pickedCount) Selected"
     }
 
     var body: some View {
@@ -76,7 +76,7 @@ struct HomeView: View {
                 .disabled(model.pickedCount == 0)
             Button("Done") { model.endSelection() }
         } else {
-            Button("Select") { model.selecting = true }.disabled(folders.isEmpty)
+            Button("Edit") { model.selecting = true }.disabled(folders.isEmpty)
             IconButton(systemName: "folder.badge.plus", label: "New Folder") {
                 newFolderParent = nil
                 nameText = ""
@@ -93,10 +93,14 @@ struct HomeView: View {
             Section {
                 notesRow
                 ForEach(folders) { folder in folderRow(folder) }
+                    .onMove { source, destination in
+                        Task { await model.moveFolders(in: nil, from: source, to: destination) }
+                    }
             }
             // Trash stays out of the way, at the very bottom.
             Section { trashRow }
         }
+        .environment(\.editMode, .constant(model.selecting ? .active : .inactive))
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
     }
@@ -169,7 +173,7 @@ struct HomeView: View {
         .buttonStyle(.plain)
         .listRowSeparator(.hidden)
         .listRowBackground(dropHighlight == folder.id.uuidString ? Theme.accent.opacity(0.18) : Color.clear)
-        .draggable(ItemRef(kind: .folder, id: folder.id))
+        .draggableItem(ItemRef(kind: .folder, id: folder.id), enabled: !model.selecting)
         .acceptsItems(into: folder.id, key: folder.id.uuidString, highlight: $dropHighlight)
         .swipeActions(edge: .trailing) {
             Button("Delete", systemImage: "trash", role: .destructive) {

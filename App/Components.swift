@@ -210,3 +210,11 @@ extension View {
         modifier(ItemDrop(folderId: folderId, key: key, enabled: enabled, highlight: highlight))
     }
 }
+
+extension View {
+    /// Drag source that switches off while editing, so it does not fight the reorder handles.
+    @ViewBuilder
+    func draggableItem(_ item: ItemRef, enabled: Bool) -> some View {
+        if enabled { draggable(item) } else { self }
+    }
+}
