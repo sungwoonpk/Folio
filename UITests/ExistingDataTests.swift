@@ -2,7 +2,7 @@ import XCTest
 
 /// Opens the notes that already exist (a copy of the real data) and edits them.
 final class ExistingDataTests: XCTestCase {
-    let shots = "/private/tmp/claude-501/-Users-jamespark-Documents-Projects/9e34b958-314b-4232-878e-8574099fa729/scratchpad/shots"
+    let shots = NSTemporaryDirectory() + "note-ui-shots"
 
     override func setUp() {
         continueAfterFailure = false
