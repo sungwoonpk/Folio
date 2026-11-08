@@ -101,7 +101,17 @@ struct NoteListView: View {
         .overlay {
             if model.notes.isEmpty {
                 if model.query.isEmpty {
-                    ContentUnavailableView("No Notes", systemImage: "note.text")
+                    // Writing never requires a folder.
+                    ContentUnavailableView {
+                        Label("No Notes", systemImage: "note.text")
+                    } actions: {
+                        Button("New Note") {
+                            Task {
+                                await model.createNote()
+                                nav.compactColumn = .detail
+                            }
+                        }
+                    }
                 } else {
                     ContentUnavailableView { Label("No Results", systemImage: "magnifyingglass") }
                 }
