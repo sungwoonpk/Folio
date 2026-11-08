@@ -165,14 +165,13 @@ final class NoteStoreTests: XCTestCase {
         XCTAssertEqual(ordered.first?.id, note.id)
     }
 
-    // MARK: Trash
+    // MARK: Recently Deleted
 
     func testDeletingNotesNeverRemovesTheirFolder() async throws {
         let store = try makeStore()
-        let parent = try await store.createFolder(name: "Parent")
-        let child = try await store.createFolder(name: "Child", parentId: parent.id)
-        let n1 = try await store.createNote(folderId: child.id)
-        let n2 = try await store.createNote(folderId: child.id)
+        let folder = try await store.createFolder(name: "Folder")
+        let n1 = try await store.createNote(folderId: folder.id)
+        let n2 = try await store.createNote(folderId: folder.id)
         try await write(store, n1, ["one"])
         try await write(store, n2, ["two"])
 
@@ -181,123 +180,98 @@ final class NoteStoreTests: XCTestCase {
         try await store.emptyTrash()
 
         let folders = try await store.folders()
-        XCTAssertEqual(Set(folders.map(\.id)), [parent.id, child.id])
-        let remaining = try await store.notes(in: .folder(child.id))
+        XCTAssertEqual(folders.map(\.id), [folder.id])
+        let remaining = try await store.notes(in: .folder(folder.id))
         XCTAssertTrue(remaining.isEmpty)
     }
 
-    func testTrashAndRestoreNote() async throws {
+    func testDeleteAndRestoreNoteIntoAChosenFolder() async throws {
         let store = try makeStore()
-        let note = try await store.createNote()
+        let from = try await store.createFolder(name: "From")
+        let to = try await store.createFolder(name: "To")
+        let note = try await store.createNote(folderId: from.id)
         try await write(store, note, ["keep me"])
 
         try await store.trashNote(id: note.id)
         let active = try await store.notes(in: .all)
         XCTAssertTrue(active.isEmpty)
-        let trashed = try await store.trash()
-        XCTAssertEqual(trashed.notes.map(\.id), [note.id])
-        let found = try await store.search("keep")
-        XCTAssertTrue(found.isEmpty, "trashed notes must leave the search index")
+        let deleted = try await store.deletedNotes()
+        XCTAssertEqual(deleted.map(\.id), [note.id])
+        let hidden = try await store.search("keep")
+        XCTAssertTrue(hidden.isEmpty, "deleted notes must leave the search index")
 
-        try await store.restoreNote(id: note.id)
-        let restored = try await store.search("keep")
-        XCTAssertEqual(restored.map(\.id), [note.id])
-    }
-
-    func testTrashFolderTakesContentsAndRestoreBringsThemBack() async throws {
-        let store = try makeStore()
-        let a = try await store.createFolder(name: "A")
-        let b = try await store.createFolder(name: "B", parentId: a.id)
-        let n = try await store.createNote(folderId: b.id)
-        try await write(store, n, ["nested note"])
-        let loose = try await store.createNote(folderId: a.id)
-        try await write(store, loose, ["loose note"])
-        try await store.trashNote(id: loose.id) // separately trashed earlier
-        try await Task.sleep(nanoseconds: 5_000_000) // distinct timestamps
-
-        try await store.trashFolder(id: a.id)
-        let folders = try await store.folders()
-        XCTAssertTrue(folders.isEmpty)
-        let trash = try await store.trash()
-        XCTAssertEqual(trash.folders.map(\.id), [a.id], "only the top folder is listed")
-        // The nested note stays inside the trashed folder. The earlier-trashed note is listed on its own.
-        XCTAssertEqual(trash.notes.map(\.id), [loose.id])
-        XCTAssertFalse(trash.notes.contains { $0.id == n.id })
-
-        try await store.restoreFolder(id: a.id)
-        let restoredFolders = try await store.folders()
-        XCTAssertEqual(Set(restoredFolders.map(\.id)), [a.id, b.id])
-        let nested = try await store.notes(in: .folder(b.id))
-        XCTAssertEqual(nested.map(\.id), [n.id])
-        let hits = try await store.search("nested")
-        XCTAssertEqual(hits.count, 1)
-    }
-
-    func testRestoreFolderKeepsSeparatelyTrashedNotesInTrash() async throws {
-        let store = try makeStore()
-        let a = try await store.createFolder(name: "A")
-        let inside = try await store.createNote(folderId: a.id)
-        try await write(store, inside, ["inside"])
-        let early = try await store.createNote(folderId: a.id)
-        try await write(store, early, ["early"])
-        try await store.trashNote(id: early.id)
-        try await Task.sleep(nanoseconds: 5_000_000) // distinct timestamps
-
-        try await store.trashFolder(id: a.id)
-        try await store.restoreFolder(id: a.id)
-
-        let active = try await store.notes(in: .folder(a.id))
-        XCTAssertEqual(active.map(\.id), [inside.id])
-        let trash = try await store.trash()
-        XCTAssertEqual(trash.notes.map(\.id), [early.id])
-        let found = try await store.search("inside")
-        XCTAssertEqual(found.count, 1)
-    }
-
-    func testRestoreNoteWhoseFolderIsTrashedGoesToTopLevel() async throws {
-        let store = try makeStore()
-        let a = try await store.createFolder(name: "A")
-        let n = try await store.createNote(folderId: a.id)
-        try await write(store, n, ["orphan"])
-        try await store.trashNote(id: n.id)
-        try await Task.sleep(nanoseconds: 5_000_000)
-        try await store.trashFolder(id: a.id)
-
-        try await store.restoreNote(id: n.id)
-        let restored = try await store.note(id: n.id)
-        XCTAssertNil(restored?.folderId)
+        try await store.restoreNote(id: note.id, to: to.id)
+        let restored = try await store.note(id: note.id)
+        XCTAssertEqual(restored?.folderId, to.id, "it goes where the user picked, not where it came from")
         XCTAssertNil(restored?.deletedAt)
+        let found = try await store.search("keep")
+        XCTAssertEqual(found.map(\.id), [note.id])
+        let leftover = try await store.deletedNotes()
+        XCTAssertTrue(leftover.isEmpty)
     }
 
-    func testEmptyTrashRemovesEverything() async throws {
+    func testRestoringIntoAFolderThatDoesNotExistFailsAndKeepsTheNoteDeleted() async throws {
         let store = try makeStore()
-        let a = try await store.createFolder(name: "A")
-        let n1 = try await store.createNote(folderId: a.id)
-        let n2 = try await store.createNote()
-        try await write(store, n1, ["x"])
-        try await write(store, n2, ["y"])
-        try await store.trashFolder(id: a.id)
-        try await store.trashNote(id: n2.id)
+        let note = try await store.createNote()
+        try await write(store, note, ["x"])
+        try await store.trashNote(id: note.id)
+        do {
+            try await store.restoreNote(id: note.id, to: UUID())
+            XCTFail("expected notFound")
+        } catch NoteStoreError.notFound {}
+        let deleted = try await store.deletedNotes()
+        XCTAssertEqual(deleted.map(\.id), [note.id])
+    }
+
+    func testDeletingAFolderDoesNotKeepTheFolderButKeepsItsNotes() async throws {
+        let store = try makeStore()
+        let doomed = try await store.createFolder(name: "Doomed")
+        let other = try await store.createFolder(name: "Other")
+        let inside = try await store.createNote(folderId: doomed.id)
+        try await write(store, inside, ["inside note", "second line"])
+        let early = try await store.createNote(folderId: doomed.id)
+        try await write(store, early, ["early note"])
+        try await store.trashNote(id: early.id) // was already deleted before the folder went
+        let safe = try await store.createNote(folderId: other.id)
+        try await write(store, safe, ["safe note"])
+
+        try await store.deleteFolder(id: doomed.id)
+
+        let folders = try await store.folders()
+        XCTAssertEqual(folders.map(\.id), [other.id], "the folder is gone, not kept anywhere")
+        let deleted = try await store.deletedNotes()
+        XCTAssertEqual(Set(deleted.map(\.id)), [inside.id, early.id], "both notes are in Recently Deleted")
+        XCTAssertTrue(deleted.allSatisfy { $0.folderId == nil }, "they no longer belong to a folder")
+        let blocks = try await store.blocks(noteId: inside.id)
+        XCTAssertEqual(blocks.map(\.content), ["inside note", "second line"], "content survives")
+        let hidden = try await store.search("inside")
+        XCTAssertTrue(hidden.isEmpty)
+        let untouched = try await store.notes(in: .folder(other.id))
+        XCTAssertEqual(untouched.map(\.id), [safe.id])
+
+        // And they can come back, into any folder.
+        try await store.restoreNote(id: inside.id, to: other.id)
+        let found = try await store.search("inside")
+        XCTAssertEqual(found.map(\.id), [inside.id])
+    }
+
+    func testEmptyTrashRemovesDeletedNotesOnly() async throws {
+        let store = try makeStore()
+        let folder = try await store.createFolder(name: "F")
+        let keep = try await store.createNote(folderId: folder.id)
+        let drop = try await store.createNote(folderId: folder.id)
+        try await write(store, keep, ["keep"])
+        try await write(store, drop, ["drop"])
+        try await store.trashNote(id: drop.id)
 
         try await store.emptyTrash()
-        let trash = try await store.trash()
-        XCTAssertTrue(trash.folders.isEmpty)
-        XCTAssertTrue(trash.notes.isEmpty)
-        let gone1 = try await store.note(id: n1.id)
-        XCTAssertNil(gone1)
-    }
 
-    func testPurgeOlderThanKeepsRecentTrash() async throws {
-        let store = try makeStore()
-        let n = try await store.createNote()
-        try await write(store, n, ["recent"])
-        try await store.trashNote(id: n.id)
-        try await store.purgeTrash(olderThan: Date().addingTimeInterval(-3600))
-        let still = try await store.trash()
-        XCTAssertEqual(still.notes.count, 1)
-        try await store.purgeTrash(olderThan: Date().addingTimeInterval(3600))
-        let gone = try await store.trash()
-        XCTAssertTrue(gone.notes.isEmpty)
+        let deleted = try await store.deletedNotes()
+        XCTAssertTrue(deleted.isEmpty)
+        let gone = try await store.note(id: drop.id)
+        XCTAssertNil(gone)
+        let still = try await store.notes(in: .folder(folder.id))
+        XCTAssertEqual(still.map(\.id), [keep.id])
     }
 
     // MARK: Search

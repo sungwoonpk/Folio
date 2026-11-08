@@ -13,16 +13,6 @@ public enum NoteScope: Sendable, Equatable {
     case folder(UUID)
 }
 
-public struct TrashContents: Sendable, Equatable {
-    public var folders: [Folder]
-    public var notes: [Note]
-
-    public init(folders: [Folder], notes: [Note]) {
-        self.folders = folders
-        self.notes = notes
-    }
-}
-
 /// All persistence operations the UI needs. Every method runs in one transaction.
 public final class NoteStore: Sendable {
     public let database: AppDatabase
@@ -130,37 +120,17 @@ public final class NoteStore: Sendable {
         }
     }
 
-    public func trashFolder(id: UUID) async throws {
+    /// Deletes a folder for good. Its notes are not lost: they go to Recently Deleted, without a folder.
+    public func deleteFolder(id: UUID) async throws {
         try await writer.write { db in
             let ids = try Self.subtreeIDs(db, root: id)
-            let stamp = Date()
-            try Folder.filter(ids.contains(Column("id")) && Column("deletedAt") == nil)
-                .updateAll(db, Column("deletedAt").set(to: stamp))
-            let noteIds = try UUID.fetchAll(
-                db, Note.filter(ids.contains(Column("folderId")) && Column("deletedAt") == nil).select(Column("id"))
-            )
-            try Note.filter(noteIds.contains(Column("id"))).updateAll(db, Column("deletedAt").set(to: stamp))
+            let noteIds = try UUID.fetchAll(db, Note.filter(ids.contains(Column("folderId"))).select(Column("id")))
+            // Notes that were already deleted keep their original deleted time.
+            try Note.filter(noteIds.contains(Column("id")) && Column("deletedAt") == nil)
+                .updateAll(db, Column("deletedAt").set(to: Date()))
+            try Note.filter(noteIds.contains(Column("id"))).updateAll(db, Column("folderId").set(to: nil))
             for noteId in noteIds { try Self.reindex(db, noteId: noteId) }
-        }
-    }
-
-    public func restoreFolder(id: UUID) async throws {
-        try await writer.write { db in
-            guard var folder = try Folder.fetchOne(db, key: id), let stamp = folder.deletedAt else { return }
-            // Parent still in trash: restore to top level.
-            if let parentId = folder.parentId,
-               let parent = try Folder.fetchOne(db, key: parentId), parent.deletedAt != nil {
-                folder.parentId = nil
-                try folder.update(db)
-            }
-            let ids = try Self.subtreeIDs(db, root: id)
-            try Folder.filter(ids.contains(Column("id")) && Column("deletedAt") == stamp)
-                .updateAll(db, Column("deletedAt").set(to: nil))
-            let noteIds = try UUID.fetchAll(
-                db, Note.filter(ids.contains(Column("folderId")) && Column("deletedAt") == stamp).select(Column("id"))
-            )
-            try Note.filter(noteIds.contains(Column("id"))).updateAll(db, Column("deletedAt").set(to: nil))
-            for noteId in noteIds { try Self.reindex(db, noteId: noteId) }
+            _ = try Folder.deleteOne(db, key: id) // only subfolders cascade, the notes are detached
         }
     }
 
@@ -252,40 +222,25 @@ public final class NoteStore: Sendable {
         }
     }
 
-    public func restoreNote(id: UUID) async throws {
+    /// Brings a deleted note back into the folder the user picked.
+    public func restoreNote(id: UUID, to folderId: UUID) async throws {
         try await writer.write { db in
-            guard var note = try Note.fetchOne(db, key: id) else { return }
+            guard var note = try Note.fetchOne(db, key: id),
+                  try Folder.fetchOne(db, key: folderId) != nil else { throw NoteStoreError.notFound }
+            note.folderId = folderId
             note.deletedAt = nil
-            // Folder still in trash or gone: restore to top level.
-            if let folderId = note.folderId,
-               try Folder.filter(Column("id") == folderId && Column("deletedAt") == nil).isEmpty(db) {
-                note.folderId = nil
-            }
             try note.update(db)
             try Self.reindex(db, noteId: id)
+            try Self.touchFolders(db, from: folderId)
         }
     }
 
-    // MARK: - Trash
+    // MARK: - Recently Deleted
 
-    /// Top-level trashed items only. Contents of a trashed folder stay inside it.
-    public func trash() async throws -> TrashContents {
+    /// Deleted notes, most recently deleted first. Folders are never kept here.
+    public func deletedNotes() async throws -> [Note] {
         try await writer.read { db in
-            let trashedFolders = try Folder.filter(Column("deletedAt") != nil).fetchAll(db)
-            let byId = Dictionary(uniqueKeysWithValues: trashedFolders.map { ($0.id, $0) })
-            let topFolders = trashedFolders.filter { folder in
-                guard let parent = folder.parentId.flatMap({ byId[$0] }) else { return true }
-                return parent.deletedAt != folder.deletedAt
-            }
-            let notes = try Note.filter(Column("deletedAt") != nil).order(Column("deletedAt").desc).fetchAll(db)
-            let topNotes = notes.filter { note in
-                guard let folder = note.folderId.flatMap({ byId[$0] }) else { return true }
-                return folder.deletedAt != note.deletedAt
-            }
-            return TrashContents(
-                folders: topFolders.sorted { ($0.deletedAt ?? .distantPast) > ($1.deletedAt ?? .distantPast) },
-                notes: topNotes
-            )
+            try Note.filter(Column("deletedAt") != nil).order(Column("deletedAt").desc).fetchAll(db)
         }
     }
 
@@ -296,34 +251,9 @@ public final class NoteStore: Sendable {
         }
     }
 
-    public func purgeFolder(id: UUID) async throws {
-        try await writer.write { db in
-            let ids = try Self.subtreeIDs(db, root: id)
-            let noteIds = try UUID.fetchAll(db, Note.filter(ids.contains(Column("folderId"))).select(Column("id")))
-            for noteId in noteIds {
-                try db.execute(sql: "DELETE FROM noteSearch WHERE noteId = ?", arguments: [noteId.uuidString])
-            }
-            _ = try Folder.deleteOne(db, key: id) // cascades to child folders, notes, blocks
-        }
-    }
-
     public func emptyTrash() async throws {
-        try await purgeTrash(olderThan: nil)
-    }
-
-    /// Permanently deletes trash older than the cutoff (nil = everything in trash).
-    public func purgeTrash(olderThan cutoff: Date?) async throws {
         try await writer.write { db in
-            func expired(_ column: String) -> SQLExpression {
-                if let cutoff { return Column(column) != nil && Column(column) < cutoff }
-                return Column(column) != nil
-            }
-            let folderIds = try UUID.fetchAll(db, Folder.filter(expired("deletedAt")).select(Column("id")))
-            for folderId in folderIds {
-                // Cascade removes child folders, notes and blocks. Trashed notes are already unindexed.
-                _ = try Folder.deleteOne(db, key: folderId)
-            }
-            _ = try Note.filter(expired("deletedAt")).deleteAll(db)
+            _ = try Note.filter(Column("deletedAt") != nil).deleteAll(db) // deleted notes are not indexed
         }
     }
 

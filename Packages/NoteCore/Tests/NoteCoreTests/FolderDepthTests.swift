@@ -88,3 +88,31 @@ final class PreviewMigrationTests: XCTestCase {
         }
     }
 }
+
+final class FolderTrashMigrationTests: XCTestCase {
+    func testFoldersThatWereInTheTrashAreRemovedAndTheirNotesStayDeleted() throws {
+        let queue = try DatabaseQueue()
+        try AppDatabase.migrator.migrate(queue, upTo: "v3-refresh-previews")
+
+        let trashedFolder = UUID(), liveFolder = UUID(), deletedNote = UUID(), liveNote = UUID()
+        let stamp = Date()
+        try queue.write { db in
+            try Folder(id: trashedFolder, name: "Trashed", deletedAt: stamp).insert(db)
+            try Folder(id: liveFolder, name: "Live").insert(db)
+            try Note(id: deletedNote, folderId: trashedFolder, title: "was in trashed folder", deletedAt: stamp).insert(db)
+            try Note(id: liveNote, folderId: liveFolder, title: "untouched").insert(db)
+        }
+
+        try AppDatabase.migrator.migrate(queue)
+
+        try queue.read { db in
+            XCTAssertNil(try Folder.fetchOne(db, key: trashedFolder), "trashed folder is removed")
+            XCTAssertNotNil(try Folder.fetchOne(db, key: liveFolder))
+            let kept = try Note.fetchOne(db, key: deletedNote)
+            XCTAssertNotNil(kept, "its note is kept")
+            XCTAssertNil(kept?.folderId)
+            XCTAssertNotNil(kept?.deletedAt, "and is still in Recently Deleted")
+            XCTAssertEqual(try Note.fetchOne(db, key: liveNote)?.folderId, liveFolder)
+        }
+    }
+}
