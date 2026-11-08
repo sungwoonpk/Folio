@@ -103,7 +103,11 @@ public enum NoteDocument {
         for segment in segments {
             switch segment {
             case .text(_, let text):
-                for line in text.components(separatedBy: "\n") {
+                // Pasted text may use Windows (\r\n) or old Mac (\r) line endings.
+                let normalized = text
+                    .replacingOccurrences(of: "\r\n", with: "\n")
+                    .replacingOccurrences(of: "\r", with: "\n")
+                for line in normalized.components(separatedBy: "\n") {
                     if line.hasPrefix(bulletPrefix) {
                         blocks.append(Block(noteId: noteId, kind: .bullet, content: String(line.dropFirst(bulletPrefix.count))))
                     } else if line.hasPrefix(checkedPrefix) {

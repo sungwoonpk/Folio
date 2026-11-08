@@ -26,6 +26,10 @@ final class AppModel {
     init() {
         let database: AppDatabase
         let args = ProcessInfo.processInfo.arguments
+        if args.contains("-ui-testing") {
+            // Tests always start in System mode, whatever an earlier run left behind.
+            UserDefaults.standard.removeObject(forKey: SettingsKey.appearance)
+        }
         do {
             if let path = UserDefaults.standard.string(forKey: "ui-testing-db") {
                 // UI tests that must survive a relaunch: a database file at a path the test chose.
@@ -116,11 +120,12 @@ final class AppModel {
 
     // MARK: Folder actions
 
-    func createFolder(name: String) async {
-        let trimmed = name.trimmingCharacters(in: .whitespaces)
-        guard !trimmed.isEmpty else { return }
-        _ = try? await store.createFolder(name: trimmed)
+    /// Returns the new folder's id, or nil if the name was empty.
+    @discardableResult
+    func createFolder(name: String) async -> UUID? {
+        guard let folder = try? await store.createFolder(name: name) else { return nil }
         await reloadAll()
+        return folder.id
     }
 
     func renameFolder(_ id: UUID, to name: String) async {

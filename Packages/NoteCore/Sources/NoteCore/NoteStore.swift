@@ -6,6 +6,8 @@ public enum NoteStoreError: Error {
     case invalidMove
     /// Folders cannot be nested deeper than the store allows.
     case tooDeep
+    /// A folder name that is empty after trimming.
+    case invalidName
 }
 
 public enum NoteScope: Sendable, Equatable {
@@ -15,6 +17,9 @@ public enum NoteScope: Sendable, Equatable {
 
 /// All persistence operations the UI needs. Every method runs in one transaction.
 public final class NoteStore: Sendable {
+    /// Folder names longer than this are cut.
+    public static let maxFolderNameLength = 120
+
     public let database: AppDatabase
     /// How many folder levels are allowed. 1 means folders only at the top, none inside folders.
     public let maxFolderDepth: Int
@@ -41,7 +46,8 @@ public final class NoteStore: Sendable {
 
     @discardableResult
     public func createFolder(name: String, parentId: UUID? = nil) async throws -> Folder {
-        try await writer.write { [maxFolderDepth] db -> Folder in
+        let name = try Self.cleanFolderName(name)
+        return try await writer.write { [maxFolderDepth] db -> Folder in
             if let parentId, try Self.depth(db, of: parentId) + 1 > maxFolderDepth { throw NoteStoreError.tooDeep }
             // sortOrder 0 means automatic: most recently modified first.
             var folder = Folder(name: name, parentId: parentId)
@@ -51,6 +57,7 @@ public final class NoteStore: Sendable {
     }
 
     public func renameFolder(id: UUID, to name: String) async throws {
+        let name = try Self.cleanFolderName(name)
         try await writer.write { db in
             guard var folder = try Folder.fetchOne(db, key: id) else { throw NoteStoreError.notFound }
             folder.name = name
@@ -103,7 +110,7 @@ public final class NoteStore: Sendable {
                 folder.createdAt = Date()
                 folder.updatedAt = Date()
                 if oldId == id {
-                    folder.name += " Copy"
+                    folder.name = String((folder.name + " Copy").prefix(Self.maxFolderNameLength))
                 } else if let parent = folder.parentId {
                     folder.parentId = idMap[parent]
                 }
@@ -227,6 +234,8 @@ public final class NoteStore: Sendable {
         try await writer.write { db in
             guard var note = try Note.fetchOne(db, key: id),
                   try Folder.fetchOne(db, key: folderId) != nil else { throw NoteStoreError.notFound }
+            // Only deleted notes can be restored. A live note must not be moved by accident.
+            guard note.deletedAt != nil else { return }
             note.folderId = folderId
             note.deletedAt = nil
             try note.update(db)
@@ -294,6 +303,13 @@ public final class NoteStore: Sendable {
     }
 
     // MARK: - Helpers
+
+    /// Trims a folder name, rejects an empty one and cuts a very long one.
+    static func cleanFolderName(_ raw: String) throws -> String {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { throw NoteStoreError.invalidName }
+        return String(trimmed.prefix(maxFolderNameLength))
+    }
 
     /// Marks a folder and its ancestors as modified now, so recency sorting follows the notes inside.
     static func touchFolders(_ db: Database, from folderId: UUID?) throws {

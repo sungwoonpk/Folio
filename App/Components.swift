@@ -27,6 +27,8 @@ struct IconButton: View {
     /// Used instead of the system symbol when set.
     var image: Image?
     var label: String = ""
+    /// What the button currently shows, read out by VoiceOver and checked by tests.
+    var value: String = ""
     let action: () -> Void
     @Environment(\.isEnabled) private var isEnabled
 
@@ -40,6 +42,7 @@ struct IconButton: View {
         .buttonStyle(.plain)
         .opacity(isEnabled ? 1 : 0.3)
         .accessibilityLabel(label.isEmpty ? systemName : label)
+        .accessibilityValue(value)
     }
 }
 
@@ -135,6 +138,7 @@ struct NoteRow: View {
 }
 
 /// Pick a folder to move notes into. Folders are one level, so this is a flat list.
+/// It can also make a folder, so restoring is never stuck when no folder exists.
 struct MovePicker: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
@@ -142,6 +146,9 @@ struct MovePicker: View {
     var title = "Move"
     var current: UUID?
     let onPick: (UUID) -> Void
+
+    @State private var showNewFolder = false
+    @State private var nameText = ""
 
     var body: some View {
         NavigationStack {
@@ -160,15 +167,44 @@ struct MovePicker: View {
             }
             .listStyle(.plain)
             .overlay {
-                if model.folders.isEmpty { ContentUnavailableView("No Folders", systemImage: "folder") }
+                if model.folders.isEmpty {
+                    ContentUnavailableView {
+                        Label("No Folders", systemImage: "folder")
+                    } actions: {
+                        Button("New Folder") { startNewFolder() }
+                    }
+                }
             }
             .navigationTitle(title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+                if !model.folders.isEmpty {
+                    ToolbarItem(placement: .primaryAction) {
+                        Button("New Folder", systemImage: "folder.badge.plus") { startNewFolder() }
+                    }
+                }
+            }
+            .alert("New Folder", isPresented: $showNewFolder) {
+                TextField("Name", text: $nameText)
+                Button("Create") {
+                    Task {
+                        // The new folder is the one the user wants, so use it right away.
+                        if let id = await model.createFolder(name: nameText) {
+                            onPick(id)
+                            dismiss()
+                        }
+                    }
+                }
+                Button("Cancel", role: .cancel) {}
             }
         }
         .presentationDetents([.medium, .large])
+    }
+
+    private func startNewFolder() {
+        nameText = ""
+        showNewFolder = true
     }
 }
 

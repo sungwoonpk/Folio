@@ -87,9 +87,10 @@ final class ScreenshotTests: XCTestCase {
         sleep(1)
         back(app)
 
-        // 1. Folders, light.
+        // 1. Folders, light. A test launch starts in the phone's mode, the simulator is in light mode.
         back(app)
         sleep(1)
+        XCTAssertEqual(app.buttons["Appearance"].value as? String, "Light", "the first screenshots must be light")
         save(app, "01-folders", to: dir)
 
         // 2. A folder's notes, grouped by date.
@@ -110,10 +111,10 @@ final class ScreenshotTests: XCTestCase {
         back(app)
         back(app)
 
-        // 5. Dark mode: the icon cycles System, Light, Dark.
-        app.buttons["Appearance"].tap()
+        // 5. Dark mode: one tap on the icon flips light to dark.
         app.buttons["Appearance"].tap()
         sleep(1)
+        XCTAssertEqual(app.buttons["Appearance"].value as? String, "Dark", "this screenshot must be dark")
         save(app, "05-dark", to: dir)
     }
 }

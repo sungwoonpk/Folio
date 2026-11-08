@@ -8,6 +8,7 @@ struct FolderScreen: View {
 
     @Environment(AppModel.self) private var model
     @Environment(Nav.self) private var nav
+    @Environment(\.horizontalSizeClass) private var sizeClass
 
     @State private var movingNote: Note?
     @State private var movingPicked = false
@@ -131,7 +132,8 @@ struct FolderScreen: View {
     }
 
     private func noteRow(_ note: Note) -> some View {
-        let open = !model.selecting && model.selectedNoteId == note.id
+        // Only tint the open note when the editor is next to the list. On iPhone it is a separate screen.
+        let open = !model.selecting && sizeClass == .regular && model.selectedNoteId == note.id
         return Button {
             if model.selecting {
                 model.toggleNote(note.id)

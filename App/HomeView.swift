@@ -13,7 +13,8 @@ struct HomeView: View {
     @State private var movingSearchNote: Note?
 
     private var folders: [Folder] { model.subfolders(of: nil) }
-    private var appearance: Appearance { Appearance(rawValue: appearanceRaw) ?? .system }
+    /// The mode actually on screen, whether the user chose it or the phone did.
+    @Environment(\.colorScheme) private var scheme
 
     private var headerTitle: String {
         guard model.selecting else { return "Note" }
@@ -25,6 +26,8 @@ struct HomeView: View {
         VStack(spacing: 0) {
             Header(title: headerTitle) { actions }
             SearchField(text: $model.query)
+                .disabled(model.selecting)
+                .opacity(model.selecting ? 0.4 : 1)
             if model.isSearching {
                 searchList
             } else {
@@ -72,8 +75,18 @@ struct HomeView: View {
             Button("Done") { model.endSelection() }
         } else {
             IconButton(systemName: "folder.badge.plus", label: "New Folder") { startNewFolder() }
-            Button("Edit") { model.selecting = true }
-            IconButton(systemName: appearance.icon, label: "Appearance") { appearanceRaw = appearance.next.rawValue }
+            Button("Edit") {
+                // Editing works on the folder list, so a search in progress is cleared first.
+                model.query = ""
+                model.selecting = true
+            }
+            // Two states only, what you see and its opposite: sun while light, moon while dark.
+            IconButton(
+                systemName: scheme == .dark ? "moon" : "sun.max", label: "Appearance",
+                value: scheme == .dark ? "Dark" : "Light"
+            ) {
+                appearanceRaw = (scheme == .dark ? Appearance.light : Appearance.dark).rawValue
+            }
         }
     }
 
