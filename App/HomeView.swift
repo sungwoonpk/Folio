@@ -17,7 +17,7 @@ struct HomeView: View {
     @Environment(\.colorScheme) private var scheme
 
     private var headerTitle: String {
-        guard model.selecting else { return "Note" }
+        guard model.selecting else { return "Folio" }
         return model.pickedCount == 0 ? "Edit" : "\(model.pickedCount) Selected"
     }
 

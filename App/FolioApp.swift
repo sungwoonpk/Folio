@@ -2,7 +2,7 @@ import SwiftUI
 import UIKit
 
 @main
-struct NotesApp: App {
+struct FolioApp: App {
     @State private var model = AppModel()
     @AppStorage(SettingsKey.appearance) private var appearance = Appearance.system.rawValue
 

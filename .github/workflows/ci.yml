@@ -26,6 +26,6 @@ jobs:
         run: xcodegen generate
       - name: Build for the simulator
         run: |
-          xcodebuild -project Notes.xcodeproj -scheme Notes \
+          xcodebuild -project Folio.xcodeproj -scheme Folio \
             -destination 'generic/platform=iOS Simulator' \
             CODE_SIGNING_ALLOWED=NO build

@@ -1,14 +1,14 @@
-# Note
+# Folio
 
-[![CI](https://github.com/sungwoonpk/Note-App/actions/workflows/ci.yml/badge.svg)](https://github.com/sungwoonpk/Note-App/actions/workflows/ci.yml)
+[![CI](https://github.com/sungwoonpk/Folio/actions/workflows/ci.yml/badge.svg)](https://github.com/sungwoonpk/Folio/actions/workflows/ci.yml)
 
 A fast, quiet notes app for iPhone. Everything stays on the phone. Built with SwiftUI and SQLite.
 
 ## Why
 
-I built Note because I wanted to use it. The note apps I tried kept getting in the way.
+I built Folio because I wanted to use it. The note apps I tried kept getting in the way.
 
-| What went wrong | What Note does |
+| What went wrong | What Folio does |
 | --- | --- |
 | Sync that fails or conflicts | No sync and no account. Notes live on the phone |
 | Hard to keep tidy | One level of folders, notes sorted by last change, drag to reorder |
@@ -59,11 +59,11 @@ I built Note because I wanted to use it. The note apps I tried kept getting in t
 Needs Xcode (iOS 17 SDK or newer) and [XcodeGen](https://github.com/yonaskolb/XcodeGen). The Xcode project is generated from `project.yml`, so it is not checked in.
 
 ```bash
-git clone https://github.com/sungwoonpk/Note-App.git
-cd Note-App
+git clone https://github.com/sungwoonpk/Folio.git
+cd Folio
 brew install xcodegen
 xcodegen generate
-open Notes.xcodeproj
+open Folio.xcodeproj
 ```
 
 Pick an iPhone simulator and press Run. The only dependency, [GRDB](https://github.com/groue/GRDB.swift), is fetched on first build.
@@ -76,22 +76,22 @@ Pick an iPhone simulator and press Run. The only dependency, [GRDB](https://gith
 cd Packages/NoteCore && swift test
 
 # The real app, driven through its screens
-xcodebuild -project Notes.xcodeproj -scheme Notes \
+xcodebuild -project Folio.xcodeproj -scheme Folio \
   -destination 'platform=iOS Simulator,name=<an installed iPhone>' test
 ```
 
 - **Unit tests:** storage, search, odd queries, huge notes, 25 saves at once, midnight boundaries, migrations.
 - **UI tests:** every main flow plus awkward ones: blank and very long names, empty notes, deleting every folder, restoring with no folder left, closing and reopening the app.
 - **Isolation:** UI tests launch with `-ui-testing`: in-memory database, phone's light/dark mode. `-ui-testing-db <path>` uses a file for tests that relaunch.
-- **Screenshots:** `TEST_RUNNER_SCREENSHOT_DIR=docs/screenshots xcodebuild ... -only-testing:NotesUITests/ScreenshotTests test`
+- **Screenshots:** `TEST_RUNNER_SCREENSHOT_DIR=docs/screenshots xcodebuild ... -only-testing:FolioUITests/ScreenshotTests test`
 - **Demo video:** `DemoTests` plays the tour slowly. Run it with `TEST_RUNNER_DEMO=1` while `xcrun simctl io booted recordVideo demo.mp4` records the simulator, then convert with `ffmpeg`.
 
 ## Repo structure
 
 ```
-Note-App/
+Folio/
 ├── App/                       SwiftUI app
-│   ├── NotesApp.swift         Entry point, colors, fonts
+│   ├── FolioApp.swift         Entry point, colors, fonts
 │   ├── RootView.swift         Split view and navigation stack
 │   ├── HomeView.swift         Folders, search, Edit, Recently Deleted button
 │   ├── FolderScreen.swift     One folder's notes, grouped by date
