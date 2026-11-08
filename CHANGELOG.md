@@ -23,5 +23,5 @@ First working version.
 - Restoring a note that was never deleted no longer moves it (#19)
 - A note can be restored when no folder exists (#20)
 - Edit no longer fights a search in progress (#21)
-- The last opened note is no longer tinted on iPhone (#22)
+- The last opened note is no longer tinted on a compact screen (#22)
 - The light and dark switch has two states instead of three that looked alike (#23, #24)

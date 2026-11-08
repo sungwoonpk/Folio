@@ -87,7 +87,7 @@ final class ScreenshotTests: XCTestCase {
         sleep(1)
         back(app)
 
-        // 1. Folders, light. A test launch starts in the phone's mode, the simulator is in light mode.
+        // 1. Folders, light. A test launch starts in the system's mode, the simulator is in light mode.
         back(app)
         sleep(1)
         XCTAssertEqual(app.buttons["Appearance"].value as? String, "Light", "the first screenshots must be light")
