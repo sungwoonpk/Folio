@@ -19,7 +19,7 @@ Other note apps kept getting in the way.
 - **Notes sorted by last change.** Pinned, Today, Last 7 Days, Last 30 Days, then months, then years.
 - **First line is the title.** Bold and larger. Everything below is the note.
 - **Bullets, checklists, tables.** Return continues a list, Return on an empty item ends it, tap a circle to check it off.
-- **Forgiving search.** `est`, `3`, `test` and `TEST` all find `Test3`. Folders and notes, Korean included.
+- **Forgiving search.** `est`, `3`, `test` and `TEST` all find `Test3`. Folders and notes.
 - **Recently Deleted.** Deleted notes wait here. Restoring asks which folder, or lets you make one.
 - **Edit mode.** Select many to delete or move, drag folders into order.
 - **Light or dark.** One icon flips between them. The first launch follows the phone.
@@ -112,8 +112,8 @@ Note-App/
 - **Two layers.** `NoteCore` has no UI and is tested without a simulator. `App` draws and calls `NoteStore`.
 - **Storage.** SQLite through GRDB. Tables `folder`, `note`, `block` and a search index. Changes ship as numbered migrations, so old data carries forward.
 - **Note content.** A note is blocks: `text`, `bullet`, `checklist` (checked ones marked `done`), `table` (cells as JSON). Title and one-line preview are cached on the note, so lists never load bodies.
-- **Search.** FTS5 with the trigram tokenizer: any part of a word, any case, no spaces needed, so Korean works. Under three characters it falls back to a substring scan. Folder names are matched separately.
-- **Editor.** Text runs with tables between them. Each run is a `UITextView` styled as you type. Markers `•` `○` `◉` are what you see and become blocks on save. Korean input is safe: text is never rewritten while a character is being composed.
+- **Search.** FTS5 with the trigram tokenizer: any part of a word, any case. Under three characters it falls back to a substring scan. Folder names are matched separately.
+- **Editor.** Text runs with tables between them. Each run is a `UITextView` styled as you type. Markers `•` `○` `◉` are what you see and become blocks on save.
 - **Load safety.** The editor stays locked until the note has been read, and retries on failure. A failed read can never become an empty note that overwrites the real one.
 - **Navigation.** `NavigationSplitView` with a `NavigationStack`. System bars are hidden, each screen draws one header so actions sit together at the top right.
 
@@ -127,6 +127,6 @@ Note-App/
 
 ## Status
 
-A working first version, tested on iPhone simulators.
+A working first version for iPhone, in English, tested on iPhone simulators.
 
-**Not done:** sync and sign-in, images, voice notes, numbered lists. The iPad layout exists but is untested.
+**Not done:** sync and sign-in, images, voice notes, numbered lists.
