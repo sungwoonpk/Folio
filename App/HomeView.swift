@@ -25,6 +25,8 @@ struct HomeView: View {
         VStack(spacing: 0) {
             Header(title: headerTitle) { actions }
             SearchField(text: $model.query)
+                .disabled(model.selecting)
+                .opacity(model.selecting ? 0.4 : 1)
             if model.isSearching {
                 searchList
             } else {
@@ -72,7 +74,11 @@ struct HomeView: View {
             Button("Done") { model.endSelection() }
         } else {
             IconButton(systemName: "folder.badge.plus", label: "New Folder") { startNewFolder() }
-            Button("Edit") { model.selecting = true }
+            Button("Edit") {
+                // Editing works on the folder list, so a search in progress is cleared first.
+                model.query = ""
+                model.selecting = true
+            }
             IconButton(systemName: appearance.icon, label: "Appearance") { appearanceRaw = appearance.next.rawValue }
         }
     }
