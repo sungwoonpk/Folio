@@ -234,6 +234,8 @@ public final class NoteStore: Sendable {
         try await writer.write { db in
             guard var note = try Note.fetchOne(db, key: id),
                   try Folder.fetchOne(db, key: folderId) != nil else { throw NoteStoreError.notFound }
+            // Only deleted notes can be restored. A live note must not be moved by accident.
+            guard note.deletedAt != nil else { return }
             note.folderId = folderId
             note.deletedAt = nil
             try note.update(db)
