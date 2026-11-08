@@ -7,7 +7,6 @@ struct TrashScreen: View {
 
     @State private var selecting = false
     @State private var picked: Set<UUID> = []
-    @State private var confirmEmpty = false
     @State private var confirmPurge = false
 
     private var isEmpty: Bool { model.trash.folders.isEmpty && model.trash.notes.isEmpty }
@@ -26,9 +25,6 @@ struct TrashScreen: View {
         .background(Theme.paper)
         .toolbar(.hidden, for: .navigationBar)
         .task { await model.reloadTrash() }
-        .confirmationDialog("Delete everything in Trash?", isPresented: $confirmEmpty, titleVisibility: .visible) {
-            Button("Delete All", role: .destructive) { Task { await model.emptyTrash() } }
-        }
         .confirmationDialog("Delete \(picked.count) forever?", isPresented: $confirmPurge, titleVisibility: .visible) {
             Button("Delete", role: .destructive) {
                 let ids = picked
@@ -41,7 +37,7 @@ struct TrashScreen: View {
     @ViewBuilder
     private var actions: some View {
         if selecting {
-            Button(!allIDs.isEmpty && picked == allIDs ? "None" : "All") {
+            Button(!allIDs.isEmpty && picked == allIDs ? "Deselect All" : "Select All") {
                 picked = picked == allIDs ? [] : allIDs
             }
             IconButton(systemName: "arrow.uturn.backward", label: "Restore") {
@@ -55,7 +51,6 @@ struct TrashScreen: View {
             Button("Done") { endSelection() }
         } else {
             Button("Edit") { selecting = true }.disabled(isEmpty)
-            Button("Empty") { confirmEmpty = true }.disabled(isEmpty)
         }
     }
 

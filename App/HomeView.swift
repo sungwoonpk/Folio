@@ -67,7 +67,7 @@ struct HomeView: View {
     @ViewBuilder
     private var actions: some View {
         if model.selecting {
-            Button(model.allPicked(notes: [], folders: folders) ? "None" : "All") {
+            Button(model.allPicked(notes: [], folders: folders) ? "Deselect All" : "Select All") {
                 model.toggleAll(notes: [], folders: folders)
             }
             IconButton(systemName: "folder", label: "Move") { movingPicked = true }

@@ -76,7 +76,7 @@ struct FolderScreen: View {
     @ViewBuilder
     private var actions: some View {
         if model.selecting {
-            Button(model.allPicked(notes: notes, folders: subfolders) ? "None" : "All") {
+            Button(model.allPicked(notes: notes, folders: subfolders) ? "Deselect All" : "Select All") {
                 model.toggleAll(notes: notes, folders: subfolders)
             }
             IconButton(systemName: "folder", label: "Move") { movingPicked = true }

@@ -288,11 +288,6 @@ final class AppModel {
         await reloadTrash()
     }
 
-    func emptyTrash() async {
-        try? await store.emptyTrash()
-        await reloadTrash()
-    }
-
     // MARK: Helpers
 
     /// Folders a folder or note can be moved into, as indented rows.
