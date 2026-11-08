@@ -26,6 +26,9 @@ struct FolderScreen: View {
             list
         }
         .background(Theme.paper)
+        .overlay(alignment: .bottomTrailing) {
+            if !model.selecting { newNoteButton }
+        }
         .toolbar(.hidden, for: .navigationBar)
         .onDisappear { model.endSelection() }
         // This folder was deleted: leave the screen.
@@ -58,9 +61,33 @@ struct FolderScreen: View {
                 .disabled(model.pickedCount == 0)
             Button("Done") { model.endSelection() }
         } else {
-            Button("Edit") { model.selecting = true }
-            IconButton(systemName: "square.and.pencil", label: "New Note") { newNote() }
+            // One menu with three dots. New notes have their own button at the bottom right.
+            Menu {
+                Button("Edit", systemImage: "checkmark.circle") { model.selecting = true }
+            } label: {
+                Image(systemName: "ellipsis")
+                    .font(.system(size: 19, weight: .medium))
+                    .frame(width: 36, height: 36)
+                    .contentShape(Rectangle())
+            }
+            .accessibilityLabel("More")
         }
+    }
+
+    /// Bottom right, always in reach of the thumb.
+    private var newNoteButton: some View {
+        Button { newNote() } label: {
+            Image(systemName: "square.and.pencil")
+                .font(.system(size: 22, weight: .medium))
+                .foregroundStyle(.white)
+                .frame(width: 58, height: 58)
+                .background(Theme.accent, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .shadow(color: .black.opacity(0.18), radius: 8, y: 3)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("New Note")
+        .padding(.trailing, 20)
+        .padding(.bottom, 18)
     }
 
     private func newNote() {
