@@ -1,10 +1,13 @@
+import NoteCore
 import SwiftUI
 
 /// Column navigation state. We draw our own headers, so we also drive back and sidebar toggles.
 @MainActor @Observable
 final class Nav {
     var columns: NavigationSplitViewVisibility = .automatic
-    var compactColumn: NavigationSplitViewColumn = .content
+    /// iPhone opens on the home screen.
+    var compactColumn: NavigationSplitViewColumn = .sidebar
+    var showTrash = false
 }
 
 /// Plain icon button. No circle, no glass.
@@ -89,5 +92,74 @@ struct SearchField: View {
         .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
         .padding(.horizontal, 16)
         .padding(.bottom, 8)
+    }
+}
+
+struct NoteRow: View {
+    let note: Note
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 6) {
+                if note.pinned {
+                    Circle().fill(Theme.accent).frame(width: 6, height: 6)
+                }
+                Text(note.title.isEmpty ? "New Note" : note.title)
+                    .font(.system(.headline, design: .serif))
+                    .lineLimit(1)
+            }
+            Text(note.snippet.isEmpty ? "No additional text" : note.snippet)
+                .font(.system(.subheadline, design: .serif))
+                .foregroundStyle(.secondary)
+                .lineLimit(2)
+            Text(note.updatedAt, format: .dateTime.month(.abbreviated).day().hour().minute())
+                .font(Theme.meta)
+                .foregroundStyle(.tertiary)
+        }
+        .padding(.vertical, 4)
+    }
+}
+
+/// Pick a destination folder, or the top level.
+struct MovePicker: View {
+    @Environment(AppModel.self) private var model
+    @Environment(\.dismiss) private var dismiss
+
+    let title: String
+    var excluding: UUID?
+    var current: UUID?
+    let onPick: (UUID?) -> Void
+
+    var body: some View {
+        NavigationStack {
+            List {
+                row("Home", systemImage: "house", depth: 0, target: nil)
+                ForEach(model.moveTargets(excluding: excluding), id: \.folder.id) { item in
+                    row(item.folder.name, systemImage: "folder", depth: item.depth + 1, target: item.folder.id)
+                }
+            }
+            .listStyle(.plain)
+            .navigationTitle(title)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+            }
+        }
+        .presentationDetents([.medium, .large])
+    }
+
+    private func row(_ name: String, systemImage: String, depth: Int, target: UUID?) -> some View {
+        Button {
+            onPick(target)
+            dismiss()
+        } label: {
+            HStack {
+                Label(name, systemImage: systemImage).font(Theme.serifBody)
+                Spacer()
+                if target == current { Image(systemName: "checkmark").foregroundStyle(Theme.accent) }
+            }
+            .padding(.leading, CGFloat(depth) * 18)
+        }
+        .foregroundStyle(.primary)
     }
 }

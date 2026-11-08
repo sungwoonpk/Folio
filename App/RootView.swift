@@ -9,14 +9,17 @@ struct RootView: View {
             columnVisibility: Binding(get: { nav.columns }, set: { nav.columns = $0 }),
             preferredCompactColumn: Binding(get: { nav.compactColumn }, set: { nav.compactColumn = $0 })
         ) {
-            SidebarView()
-        } content: {
-            NoteListView()
+            NavigationStack {
+                HomeView()
+                    .navigationDestination(
+                        isPresented: Binding(get: { nav.showTrash }, set: { nav.showTrash = $0 })
+                    ) {
+                        TrashScreen()
+                    }
+            }
         } detail: {
             Group {
-                if model.sidebar == .trash {
-                    ContentUnavailableView("Trash", systemImage: "trash")
-                } else if let id = model.selectedNoteId {
+                if let id = model.selectedNoteId {
                     EditorView(noteId: id).id(id)
                 } else {
                     ContentUnavailableView("No Note", systemImage: "square.and.pencil")
@@ -28,10 +31,5 @@ struct RootView: View {
         .navigationSplitViewStyle(.balanced)
         .environment(nav)
         .task { await model.reloadAll() }
-        .onChange(of: model.sidebar) {
-            model.selectedNoteId = nil
-            model.query = ""
-            Task { await model.reloadNotes() }
-        }
     }
 }

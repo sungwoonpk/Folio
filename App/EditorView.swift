@@ -50,7 +50,7 @@ struct EditorView: View {
     /// Back on iPhone, list and sidebar toggle on iPad.
     private var leading: (icon: String, label: String, action: () -> Void)? {
         if sizeClass == .compact {
-            return ("chevron.left", "Notes", { nav.compactColumn = .content })
+            return ("chevron.left", "Home", { nav.compactColumn = .sidebar })
         }
         return ("sidebar.left", "Sidebar", {
             nav.columns = nav.columns == .detailOnly ? .all : .detailOnly
