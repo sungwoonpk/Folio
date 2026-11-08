@@ -87,7 +87,7 @@ struct HomeView: View {
                 nameText = ""
                 showNewFolder = true
             }
-            Button("Edit") { model.selecting = true }.disabled(folders.isEmpty)
+            Button("Edit") { model.selecting = true }
             IconButton(systemName: "gearshape", label: "Settings") { showSettings = true }
         }
     }
@@ -109,7 +109,7 @@ struct HomeView: View {
         .overlay {
             if folders.isEmpty {
                 ContentUnavailableView {
-                    Label("No Folders", systemImage: "folder")
+                    Label(model.selecting ? "Nothing to Edit" : "No Folders", systemImage: "folder")
                 } actions: {
                     Button("New Folder") {
                         newFolderParent = nil

@@ -90,14 +90,17 @@ final class AppModel {
     func reloadNotes() async {
         let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
         if q.isEmpty {
-            notes = (try? await store.notes(in: .all)) ?? []
+            // A failed load must not wipe the list or close the note being edited.
+            guard let all = try? await store.notes(in: .all) else { return }
+            notes = all
             rebuildCounts()
-            // The open note vanished (its folder was deleted, for example).
-            if let id = selectedNoteId, !notes.contains(where: { $0.id == id }) {
-                selectedNoteId = nil
+            // Close the editor only if the note is really gone (deleted or in the trash).
+            if let id = selectedNoteId, !all.contains(where: { $0.id == id }) {
+                let stillThere = (try? await store.note(id: id)).flatMap { $0 }
+                if stillThere == nil || stillThere?.deletedAt != nil { selectedNoteId = nil }
             }
-        } else {
-            notes = (try? await store.search(q)) ?? []
+        } else if let found = try? await store.search(q) {
+            notes = found
         }
     }
 
@@ -192,6 +195,9 @@ final class AppModel {
 
     /// Notes opened and left empty are removed.
     func discardIfEmpty(_ id: UUID) async {
+        // Only remove it if what is saved is really empty. Never trust the editor alone.
+        let saved = (try? await store.blocks(noteId: id)) ?? []
+        guard saved.allSatisfy({ $0.kind == .text && $0.content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }) else { return }
         try? await store.purgeNote(id: id)
         if selectedNoteId == id { selectedNoteId = nil }
         await reloadNotes()

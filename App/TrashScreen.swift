@@ -50,7 +50,7 @@ struct TrashScreen: View {
                 .disabled(picked.isEmpty)
             Button("Done") { endSelection() }
         } else {
-            Button("Edit") { selecting = true }.disabled(isEmpty)
+            Button("Edit") { selecting = true }
         }
     }
 
@@ -121,7 +121,7 @@ struct TrashScreen: View {
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
         .overlay {
-            if isEmpty { ContentUnavailableView("Trash is Empty", systemImage: "trash") }
+            if isEmpty { ContentUnavailableView(selecting ? "Nothing to Edit" : "Trash is Empty", systemImage: "trash") }
         }
     }
 }

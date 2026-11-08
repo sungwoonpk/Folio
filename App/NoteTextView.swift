@@ -2,6 +2,21 @@ import NoteCore
 import SwiftUI
 import UIKit
 
+/// Lets the buttons in the editor header act on whichever text run has the cursor.
+final class EditorController {
+    weak var activeView: UITextView?
+    var activeSegmentId: UUID?
+    var activeIsFirst = false
+
+    func toggleBullet() {
+        guard let view = activeView else { return }
+        NoteTextView.toggleBullets(in: view, isTitleRun: activeIsFirst)
+    }
+
+    /// Cursor position in the active run, or nil if nothing is being edited.
+    var cursor: Int? { activeView?.selectedRange.location }
+}
+
 /// A run of text in a note. Grows with its content, so tables can sit between runs.
 /// The first line of the first run is the title: bold and larger.
 /// Bullet lines start with "• " and behave like a list.
@@ -10,7 +25,7 @@ struct NoteTextView: UIViewRepresentable {
     let segmentId: UUID
     let isFirst: Bool
     @Binding var focusRequest: UUID?
-    let onInsertTable: (_ cursor: Int) -> Void
+    let controller: EditorController
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 
@@ -23,7 +38,6 @@ struct NoteTextView: UIViewRepresentable {
         view.textContainerInset = UIEdgeInsets(top: 8, left: 0, bottom: 8, right: 0)
         view.textContainer.lineFragmentPadding = 16
         view.typingAttributes = Style.body
-        view.inputAccessoryView = context.coordinator.makeToolbar()
         context.coordinator.view = view
         return view
     }
@@ -60,39 +74,11 @@ struct NoteTextView: UIViewRepresentable {
 
         init(_ parent: NoteTextView) { self.parent = parent }
 
-        func makeToolbar() -> UIToolbar {
-            let bar = UIToolbar(frame: CGRect(x: 0, y: 0, width: 320, height: 44))
-            bar.tintColor = Theme.accentUI
-            bar.items = [
-                UIBarButtonItem(
-                    image: UIImage(systemName: "list.bullet"), style: .plain,
-                    target: self, action: #selector(bulletTapped)
-                ),
-                UIBarButtonItem(
-                    image: UIImage(systemName: "tablecells"), style: .plain,
-                    target: self, action: #selector(tableTapped)
-                ),
-                UIBarButtonItem.flexibleSpace(),
-                UIBarButtonItem(
-                    image: UIImage(systemName: "keyboard.chevron.compact.down"), style: .plain,
-                    target: self, action: #selector(dismissTapped)
-                ),
-            ]
-            bar.sizeToFit()
-            return bar
+        func textViewDidBeginEditing(_ view: UITextView) {
+            parent.controller.activeView = view
+            parent.controller.activeSegmentId = parent.segmentId
+            parent.controller.activeIsFirst = parent.isFirst
         }
-
-        @objc private func bulletTapped() {
-            guard let view else { return }
-            toggleBullets(in: view)
-        }
-
-        @objc private func tableTapped() {
-            guard let view else { return }
-            parent.onInsertTable(view.selectedRange.location)
-        }
-
-        @objc private func dismissTapped() { view?.resignFirstResponder() }
 
         // MARK: Editing rules
 
@@ -166,31 +152,8 @@ struct NoteTextView: UIViewRepresentable {
             return result
         }
 
-        /// Edit through UIKit so undo and the delegate keep working.
         private func replace(_ range: NSRange, with string: String, in view: UITextView) {
-            guard let start = view.position(from: view.beginningOfDocument, offset: range.location),
-                  let end = view.position(from: start, offset: range.length),
-                  let textRange = view.textRange(from: start, to: end) else { return }
-            view.replace(textRange, withText: string)
-        }
-
-        /// Add bullets to the selected lines, or remove them if every line already has one.
-        private func toggleBullets(in view: UITextView) {
-            let text = view.text as NSString
-            let prefix = NoteDocument.bulletPrefix
-            let block = text.paragraphRange(for: view.selectedRange)
-            let original = text.substring(with: block)
-            let hadBreak = original.last?.isNewline == true
-            let lines = Self.withoutLineBreak(original).components(separatedBy: "\n")
-            let allBulleted = lines.allSatisfy { $0.hasPrefix(prefix) }
-            let changed = lines.map { line -> String in
-                if allBulleted { return String(line.dropFirst(prefix.count)) }
-                return line.hasPrefix(prefix) ? line : prefix + line
-            }
-            let replacement = changed.joined(separator: "\n") + (hadBreak ? "\n" : "")
-            replace(block, with: replacement, in: view)
-            let end = block.location + (replacement as NSString).length - (hadBreak ? 1 : 0)
-            view.selectedRange = NSRange(location: max(end, block.location), length: 0)
+            NoteTextView.replace(range, with: string, in: view)
         }
 
         /// The text view does not scroll, its parent does. Keep the caret above the keyboard.
@@ -204,6 +167,39 @@ struct NoteTextView: UIViewRepresentable {
                 scroll.scrollRectToVisible(view.convert(caret, to: scroll).insetBy(dx: 0, dy: -28), animated: false)
             }
         }
+    }
+
+    // MARK: Bullet toggle, shared with the header button
+
+    /// Edit through UIKit so undo and the delegate keep working.
+    static func replace(_ range: NSRange, with string: String, in view: UITextView) {
+        guard let start = view.position(from: view.beginningOfDocument, offset: range.location),
+              let end = view.position(from: start, offset: range.length),
+              let textRange = view.textRange(from: start, to: end) else { return }
+        view.replace(textRange, withText: string)
+    }
+
+    /// Add bullets to the selected lines, or remove them if every line already has one.
+    /// The title line never becomes a bullet.
+    static func toggleBullets(in view: UITextView, isTitleRun: Bool) {
+        let text = view.text as NSString
+        let prefix = NoteDocument.bulletPrefix
+        let block = text.paragraphRange(for: view.selectedRange)
+        if isTitleRun, block.location == 0 { return }
+        let original = text.substring(with: block)
+        let hadBreak = original.last?.isNewline == true
+        var core = original
+        while core.last?.isNewline == true { core.removeLast() }
+        let lines = core.components(separatedBy: "\n")
+        let allBulleted = lines.allSatisfy { $0.hasPrefix(prefix) }
+        let changed = lines.map { line -> String in
+            if allBulleted { return String(line.dropFirst(prefix.count)) }
+            return line.hasPrefix(prefix) ? line : prefix + line
+        }
+        let replacement = changed.joined(separator: "\n") + (hadBreak ? "\n" : "")
+        replace(block, with: replacement, in: view)
+        let end = block.location + (replacement as NSString).length - (hadBreak ? 1 : 0)
+        view.selectedRange = NSRange(location: max(end, block.location), length: 0)
     }
 
     // MARK: Style

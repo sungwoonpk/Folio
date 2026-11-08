@@ -14,10 +14,14 @@ struct EditorView: View {
     @State private var loaded = false
     @State private var saveTask: Task<Void, Never>?
     @State private var focus: UUID?
+    @State private var controller = EditorController()
 
     var body: some View {
         VStack(spacing: 0) {
-            Header(title: "", leading: leading) { EmptyView() }
+            Header(title: "", leading: leading) {
+                IconButton(systemName: "list.bullet", label: "Bullet List") { controller.toggleBullet() }
+                IconButton(systemName: "tablecells", label: "Table") { addTable() }
+            }
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     ForEach(segments) { segment in
@@ -25,8 +29,8 @@ struct EditorView: View {
                         case .text(let id, _):
                             NoteTextView(
                                 text: textBinding(id), segmentId: id, isFirst: id == segments.first?.id,
-                                focusRequest: $focus
-                            ) { cursor in insertTable(in: id, at: cursor) }
+                                focusRequest: $focus, controller: controller
+                            )
                         case .table(let id, _):
                             TableBlockView(table: tableBinding(id)) { deleteTable(id) }
                         }
@@ -102,6 +106,16 @@ struct EditorView: View {
                 }
             }
         )
+    }
+
+    /// Table button: goes where the cursor is, or at the end if nothing is being edited.
+    private func addTable() {
+        if let id = controller.activeSegmentId, let cursor = controller.cursor,
+           segments.contains(where: { $0.id == id }) {
+            insertTable(in: id, at: cursor)
+        } else if case .text(let id, let text)? = segments.last {
+            insertTable(in: id, at: (text as NSString).length)
+        }
     }
 
     /// Splits the text at the cursor and puts a new table in between.
