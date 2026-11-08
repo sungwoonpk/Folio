@@ -23,14 +23,16 @@ final class Nav {
 
 /// Plain icon button. No circle, no glass.
 struct IconButton: View {
-    let systemName: String
+    var systemName: String = ""
+    /// Used instead of the system symbol when set.
+    var image: Image?
     var label: String = ""
     let action: () -> Void
     @Environment(\.isEnabled) private var isEnabled
 
     var body: some View {
         Button(action: action) {
-            Image(systemName: systemName)
+            (image ?? Image(systemName: systemName))
                 .font(.system(size: 19, weight: .medium))
                 .frame(width: 36, height: 36)
                 .contentShape(Rectangle())
@@ -214,4 +216,21 @@ extension View {
             .listRowSeparator(.hidden)
             .listRowInsets(EdgeInsets(top: 3, leading: 16, bottom: 3, trailing: 16))
     }
+}
+
+/// Folder with an arrow inside, so it reads as "move to a folder" at a glance.
+enum MoveIcon {
+    /// Drawn once into a template image, so it tints like a system symbol, also inside menus.
+    @MainActor static let image: Image = {
+        let drawing = ZStack {
+            Image(systemName: "folder").font(.system(size: 20, weight: .medium))
+            Image(systemName: "arrow.right").font(.system(size: 9, weight: .heavy)).offset(y: 1.5)
+        }
+        .frame(width: 28, height: 24)
+        .foregroundStyle(.black)
+        let renderer = ImageRenderer(content: drawing)
+        renderer.scale = 3
+        guard let rendered = renderer.uiImage else { return Image(systemName: "folder") }
+        return Image(uiImage: rendered.withRenderingMode(.alwaysTemplate))
+    }()
 }

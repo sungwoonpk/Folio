@@ -138,7 +138,7 @@ struct HomeView: View {
                         }
                         .buttonStyle(.plain)
                         .contextMenu {
-                            Button("Move", systemImage: "folder") { movingSearchNote = note }
+                            Button { movingSearchNote = note } label: { Label { Text("Move") } icon: { MoveIcon.image } }
                             Button("Delete", systemImage: "trash", role: .destructive) {
                                 Task { await model.trashNote(note.id) }
                             }
