@@ -22,6 +22,7 @@ struct EditorView: View {
         VStack(spacing: 0) {
             Header(title: "", leading: leading) {
                 IconButton(systemName: "list.bullet", label: "Bullet List") { controller.toggleBullet() }
+                IconButton(systemName: "checklist", label: "Checklist") { controller.toggleChecklist() }
                 IconButton(systemName: "tablecells", label: "Table") { addTable() }
             }
             ScrollView {
