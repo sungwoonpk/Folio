@@ -4,6 +4,8 @@ import GRDB
 public enum NoteStoreError: Error {
     case notFound
     case invalidMove
+    /// Folders cannot be nested deeper than the store allows.
+    case tooDeep
 }
 
 public enum NoteScope: Sendable, Equatable {
@@ -24,10 +26,13 @@ public struct TrashContents: Sendable, Equatable {
 /// All persistence operations the UI needs. Every method runs in one transaction.
 public final class NoteStore: Sendable {
     public let database: AppDatabase
+    /// How many folder levels are allowed. 1 means folders only at the top, none inside folders.
+    public let maxFolderDepth: Int
     private var writer: any DatabaseWriter { database.writer }
 
-    public init(database: AppDatabase) {
+    public init(database: AppDatabase, maxFolderDepth: Int = 1) {
         self.database = database
+        self.maxFolderDepth = maxFolderDepth
     }
 
     // MARK: - Folders
@@ -46,7 +51,8 @@ public final class NoteStore: Sendable {
 
     @discardableResult
     public func createFolder(name: String, parentId: UUID? = nil) async throws -> Folder {
-        try await writer.write { db -> Folder in
+        try await writer.write { [maxFolderDepth] db -> Folder in
+            if let parentId, try Self.depth(db, of: parentId) + 1 > maxFolderDepth { throw NoteStoreError.tooDeep }
             // sortOrder 0 means automatic: most recently modified first.
             var folder = Folder(name: name, parentId: parentId)
             try folder.insert(db)
@@ -73,10 +79,13 @@ public final class NoteStore: Sendable {
     }
 
     public func moveFolder(id: UUID, to parentId: UUID?) async throws {
-        try await writer.write { db in
+        try await writer.write { [maxFolderDepth] db in
             guard var folder = try Folder.fetchOne(db, key: id) else { throw NoteStoreError.notFound }
-            if let parentId, try Self.subtreeIDs(db, root: id).contains(parentId) {
-                throw NoteStoreError.invalidMove
+            if let parentId {
+                if try Self.subtreeIDs(db, root: id).contains(parentId) { throw NoteStoreError.invalidMove }
+                if try Self.depth(db, of: parentId) + Self.height(db, of: id) > maxFolderDepth {
+                    throw NoteStoreError.tooDeep
+                }
             }
             let oldParent = folder.parentId
             folder.parentId = parentId
@@ -364,6 +373,31 @@ public final class NoteStore: Sendable {
             guard let folder = try Folder.fetchOne(db, key: id) else { break }
             try Folder.filter(Column("id") == id).updateAll(db, Column("updatedAt").set(to: now))
             current = folder.parentId
+        }
+    }
+
+    /// Level of a folder: 1 at the top, 2 inside a folder, and so on.
+    static func depth(_ db: Database, of id: UUID) throws -> Int {
+        var level = 1
+        var current = try Folder.fetchOne(db, key: id)?.parentId
+        while let parent = current {
+            level += 1
+            current = try Folder.fetchOne(db, key: parent)?.parentId
+        }
+        return level
+    }
+
+    /// Levels in a folder's own subtree: 1 for a folder with no subfolders.
+    static func height(_ db: Database, of id: UUID) throws -> Int {
+        var levels = 1
+        var frontier = [id]
+        while true {
+            let children = try UUID.fetchAll(
+                db, Folder.filter(frontier.contains(Column("parentId"))).select(Column("id"))
+            )
+            if children.isEmpty { return levels }
+            levels += 1
+            frontier = children
         }
     }
 
