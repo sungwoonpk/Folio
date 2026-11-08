@@ -98,6 +98,25 @@ final class NoteStoreTests: XCTestCase {
 
     // MARK: Trash
 
+    func testDeletingNotesNeverRemovesTheirFolder() async throws {
+        let store = try makeStore()
+        let parent = try await store.createFolder(name: "Parent")
+        let child = try await store.createFolder(name: "Child", parentId: parent.id)
+        let n1 = try await store.createNote(folderId: child.id)
+        let n2 = try await store.createNote(folderId: child.id)
+        try await write(store, n1, ["one"])
+        try await write(store, n2, ["two"])
+
+        try await store.trashNote(id: n1.id)
+        try await store.purgeNote(id: n2.id)
+        try await store.emptyTrash()
+
+        let folders = try await store.folders()
+        XCTAssertEqual(Set(folders.map(\.id)), [parent.id, child.id])
+        let remaining = try await store.notes(in: .folder(child.id))
+        XCTAssertTrue(remaining.isEmpty)
+    }
+
     func testTrashAndRestoreNote() async throws {
         let store = try makeStore()
         let note = try await store.createNote()
