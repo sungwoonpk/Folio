@@ -87,6 +87,16 @@ public final class AppDatabase: Sendable {
             }
         }
 
+        // Folders are never kept in Recently Deleted any more. Folders that were in the trash are
+        // removed for good, their notes stay in Recently Deleted without a folder.
+        migrator.registerMigration("v4-no-folder-trash") { db in
+            try db.execute(sql: """
+                UPDATE note SET folderId = NULL
+                WHERE folderId IN (SELECT id FROM folder WHERE deletedAt IS NOT NULL)
+                """)
+            try db.execute(sql: "DELETE FROM folder WHERE deletedAt IS NOT NULL")
+        }
+
         return migrator
     }
 }

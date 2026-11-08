@@ -165,15 +165,14 @@ struct HomeView: View {
             .textCase(nil)
     }
 
-    /// Small and out of the way, at the bottom.
+    /// Small and out of the way, at the bottom. No number next to it.
     private var trashButton: some View {
-        let count = model.trash.folders.count + model.trash.notes.count
-        return Button {
+        Button {
             nav.path.append(.trash)
         } label: {
             HStack(spacing: 5) {
                 Image(systemName: "trash")
-                Text(count > 0 ? "Trash \(count)" : "Trash")
+                Text("Recently Deleted")
             }
             .font(.subheadline)
             .foregroundStyle(.secondary)
@@ -204,7 +203,7 @@ struct HomeView: View {
         .cardRow()
         .swipeActions(edge: .trailing) {
             Button("Delete", systemImage: "trash", role: .destructive) {
-                Task { await model.trashFolder(folder.id) }
+                Task { await model.deleteFolder(folder.id) }
             }
         }
         .contextMenu {
@@ -216,7 +215,7 @@ struct HomeView: View {
                 Task { await model.duplicateFolder(folder.id) }
             }
             Button("Delete", systemImage: "trash", role: .destructive) {
-                Task { await model.trashFolder(folder.id) }
+                Task { await model.deleteFolder(folder.id) }
             }
         }
     }

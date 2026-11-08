@@ -139,6 +139,7 @@ struct MovePicker: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
 
+    var title = "Move"
     var current: UUID?
     let onPick: (UUID) -> Void
 
@@ -161,7 +162,7 @@ struct MovePicker: View {
             .overlay {
                 if model.folders.isEmpty { ContentUnavailableView("No Folders", systemImage: "folder") }
             }
-            .navigationTitle("Move")
+            .navigationTitle(title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
