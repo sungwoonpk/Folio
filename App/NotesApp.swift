@@ -42,14 +42,19 @@ enum Appearance: String, CaseIterable, Identifiable {
 }
 
 enum Theme {
-    /// Vermilion.
-    static let accent = Color(red: 1.0, green: 0.35, blue: 0.21)
+    /// Soft caramel brown. Lighter in dark mode so it stays readable.
+    static let accentUI = UIColor { traits in
+        traits.userInterfaceStyle == .dark
+            ? UIColor(red: 0.80, green: 0.65, blue: 0.50, alpha: 1)
+            : UIColor(red: 0.66, green: 0.49, blue: 0.34, alpha: 1)
+    }
+    static let accent = Color(uiColor: accentUI)
 
-    /// Warm paper in light mode, near-black in dark mode.
+    /// Warm cream paper in light mode, warm near-black in dark mode.
     static let paper = Color(uiColor: UIColor { traits in
         traits.userInterfaceStyle == .dark
-            ? UIColor(red: 0.07, green: 0.07, blue: 0.07, alpha: 1)
-            : UIColor(red: 0.97, green: 0.96, blue: 0.93, alpha: 1)
+            ? UIColor(red: 0.09, green: 0.08, blue: 0.07, alpha: 1)
+            : UIColor(red: 0.97, green: 0.95, blue: 0.91, alpha: 1)
     })
 
     static let serifBody = Font.system(.body, design: .serif)
