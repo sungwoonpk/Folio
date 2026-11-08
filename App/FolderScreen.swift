@@ -52,7 +52,7 @@ struct FolderScreen: View {
             Button(model.allPicked(notes: notes, folders: []) ? "Deselect All" : "Select All") {
                 model.toggleAll(notes: notes, folders: [])
             }
-            IconButton(systemName: "folder", label: "Move") { movingPicked = true }
+            IconButton(image: MoveIcon.image, label: "Move") { movingPicked = true }
                 .disabled(model.pickedCount == 0)
             IconButton(systemName: "trash", label: "Delete") { Task { await model.trashPicked() } }
                 .disabled(model.pickedCount == 0)
@@ -141,7 +141,7 @@ struct FolderScreen: View {
             Button(note.pinned ? "Unpin" : "Pin", systemImage: note.pinned ? "pin.slash" : "pin") {
                 Task { await model.togglePin(note) }
             }
-            Button("Move", systemImage: "folder") { movingNote = note }
+            Button { movingNote = note } label: { Label { Text("Move") } icon: { MoveIcon.image } }
             Button("Duplicate", systemImage: "plus.square.on.square") {
                 Task { await model.duplicateNote(note.id) }
             }
