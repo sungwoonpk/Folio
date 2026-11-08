@@ -116,11 +116,12 @@ final class AppModel {
 
     // MARK: Folder actions
 
-    func createFolder(name: String) async {
-        let trimmed = name.trimmingCharacters(in: .whitespaces)
-        guard !trimmed.isEmpty else { return }
-        _ = try? await store.createFolder(name: trimmed)
+    /// Returns the new folder's id, or nil if the name was empty.
+    @discardableResult
+    func createFolder(name: String) async -> UUID? {
+        guard let folder = try? await store.createFolder(name: name) else { return nil }
         await reloadAll()
+        return folder.id
     }
 
     func renameFolder(_ id: UUID, to name: String) async {
