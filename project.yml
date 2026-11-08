@@ -28,3 +28,27 @@ targets:
         INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
         INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: UIInterfaceOrientationPortrait
         INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad: "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
+  NotesUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - UITests
+    dependencies:
+      - target: Notes
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.sungwoonpk.notes.uitests
+        GENERATE_INFOPLIST_FILE: YES
+        SWIFT_VERSION: "5.0"
+        TEST_TARGET_NAME: Notes
+schemes:
+  Notes:
+    build:
+      targets:
+        Notes: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - NotesUITests

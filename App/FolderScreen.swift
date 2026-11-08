@@ -91,7 +91,7 @@ struct FolderScreen: View {
                     showNewFolder = true
                 }
             }
-            Button("Edit") { model.selecting = true }.disabled(isEmpty)
+            Button("Edit") { model.selecting = true }
             IconButton(systemName: "square.and.pencil", label: "New Note") { newNote() }
         }
     }
@@ -139,7 +139,7 @@ struct FolderScreen: View {
         .overlay {
             if isEmpty {
                 ContentUnavailableView {
-                    Label("No Notes", systemImage: "note.text")
+                    Label(model.selecting ? "Nothing to Edit" : "No Notes", systemImage: "note.text")
                 } actions: {
                     Button("New Note") { newNote() }
                 }
