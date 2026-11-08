@@ -45,7 +45,7 @@ struct HomeView: View {
     @State private var dropHighlight: String?
 
     private var headerTitle: String {
-        guard model.selecting else { return "Note AI" }
+        guard model.selecting else { return "Note" }
         return model.pickedCount == 0 ? "Select" : "\(model.pickedCount) Selected"
     }
 
