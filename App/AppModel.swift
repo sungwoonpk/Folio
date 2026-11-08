@@ -270,6 +270,10 @@ final class AppModel {
             if folderIds.contains(id) {
                 try? await store.restoreFolder(id: id)
             } else {
+                // Bring the note's folder back first (no-op if it is not in trash).
+                if let folderId = trash.notes.first(where: { $0.id == id })?.folderId {
+                    try? await store.restoreFolder(id: folderId)
+                }
                 try? await store.restoreNote(id: id)
             }
         }

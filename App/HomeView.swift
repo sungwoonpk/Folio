@@ -13,6 +13,7 @@ struct HomeView: View {
     @State private var renaming: Folder?
     @State private var movingFolder: Folder?
     @State private var movingPicked = false
+    @State private var movingSearchNote: Note?
     @State private var dropHighlight: String?
 
     private var folders: [Folder] { model.subfolders(of: nil) }
@@ -55,6 +56,11 @@ struct HomeView: View {
                 Task { await model.moveFolder(folder.id, to: target) }
             }
         }
+        .sheet(item: $movingSearchNote) { note in
+            MovePicker(title: "Move", allowRoot: false, current: note.folderId) { target in
+                Task { await model.moveNote(note.id, to: target) }
+            }
+        }
         .sheet(isPresented: $movingPicked) {
             MovePicker(title: "Move", rootTitle: "Note") { target in
                 Task { await model.movePicked(to: target) }
@@ -91,8 +97,6 @@ struct HomeView: View {
     private var folderList: some View {
         List {
             Section {
-                // Only shows if notes without a folder are left over, so none get lost.
-                if !model.notes(in: nil).isEmpty { notesRow }
                 ForEach(folders) { folder in folderRow(folder) }
                     .onMove { source, destination in
                         Task { await model.moveFolders(in: nil, from: source, to: destination) }
@@ -105,7 +109,7 @@ struct HomeView: View {
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
         .overlay {
-            if folders.isEmpty && model.notes(in: nil).isEmpty {
+            if folders.isEmpty {
                 ContentUnavailableView {
                     Label("No Folders", systemImage: "folder")
                 } actions: {
@@ -131,6 +135,12 @@ struct HomeView: View {
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .contextMenu {
+                    Button("Move", systemImage: "folder") { movingSearchNote = note }
+                    Button("Delete", systemImage: "trash", role: .destructive) {
+                        Task { await model.trashNote(note.id) }
+                    }
+                }
             }
         }
         .listStyle(.plain)
@@ -143,21 +153,6 @@ struct HomeView: View {
     }
 
     // MARK: Rows
-
-    /// Notes that are not in any folder. Always there, so writing never needs a folder.
-    private var notesRow: some View {
-        Button {
-            nav.path.append(.folder(nil))
-        } label: {
-            FolderCard(
-                title: "Notes", icon: "note.text", count: model.notes(in: nil).count,
-                highlighted: dropHighlight == "notes"
-            )
-        }
-        .buttonStyle(.plain)
-        .cardRow()
-        .acceptsItems(into: nil, key: "notes", highlight: $dropHighlight)
-    }
 
     private func folderRow(_ folder: Folder) -> some View {
         Button {
