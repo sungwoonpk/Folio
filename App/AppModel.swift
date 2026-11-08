@@ -25,11 +25,20 @@ final class AppModel {
 
     init() {
         let database: AppDatabase
+        let args = ProcessInfo.processInfo.arguments
         do {
-            let dir = try FileManager.default.url(
-                for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true
-            )
-            database = try AppDatabase.open(at: dir.appendingPathComponent("notes.sqlite"))
+            if let path = UserDefaults.standard.string(forKey: "ui-testing-db") {
+                // UI tests that must survive a relaunch: a database file at a path the test chose.
+                database = try AppDatabase.open(at: URL(fileURLWithPath: path))
+            } else if args.contains("-ui-testing") {
+                // UI tests start from an empty app every time.
+                database = try AppDatabase.inMemory()
+            } else {
+                let dir = try FileManager.default.url(
+                    for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true
+                )
+                database = try AppDatabase.open(at: dir.appendingPathComponent("notes.sqlite"))
+            }
         } catch {
             // Never crash on launch. Fall back to a temporary database.
             database = try! AppDatabase.inMemory()

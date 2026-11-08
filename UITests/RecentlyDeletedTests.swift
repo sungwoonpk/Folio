@@ -8,8 +8,7 @@ final class RecentlyDeletedTests: XCTestCase {
 
     func testDeletedFolderLeavesItsNotesAndRestoreAsksForAFolder() throws {
         continueAfterFailure = false
-        let app = XCUIApplication()
-        app.launch()
+        let app = launchApp()
 
         let n = Int.random(in: 100...999)
         let gone = "Gone\(n)", keep = "Keep\(n)", noteText = "Lost note \(n)"

@@ -6,8 +6,7 @@ final class FolderScreenActionsTests: XCTestCase {
 
     func testThreeDotsAndNewNoteButton() throws {
         continueAfterFailure = false
-        let app = XCUIApplication()
-        app.launch()
+        let app = launchApp()
 
         let name = "Pg\(Int.random(in: 100...999))"
         app.buttons["New Folder"].firstMatch.tap()

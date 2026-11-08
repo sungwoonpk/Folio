@@ -4,8 +4,7 @@ import XCTest
 final class SearchTests: XCTestCase {
     func testFolderNamesMatchAnyPartInAnyCase() throws {
         continueAfterFailure = false
-        let app = XCUIApplication()
-        app.launch()
+        let app = launchApp()
 
         let suffix = Int.random(in: 100...999)
         let target = "Zebra\(suffix)", other = "Qwerty\(suffix)"
