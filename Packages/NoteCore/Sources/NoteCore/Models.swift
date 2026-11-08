@@ -92,7 +92,9 @@ enum NoteSummary {
     static let snippetLimit = 140
 
     static func derive(from blocks: [Block]) -> (title: String, snippet: String) {
+        // Table cells are searchable but never shown as the title or preview.
         let lines = blocks
+            .filter { $0.kind != .table }
             .sorted { $0.position < $1.position }
             .flatMap { $0.content.split(whereSeparator: \.isNewline) }
             .map { $0.trimmingCharacters(in: .whitespaces) }

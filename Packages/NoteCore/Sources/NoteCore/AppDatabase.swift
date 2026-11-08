@@ -75,6 +75,18 @@ public final class AppDatabase: Sendable {
             try db.execute(sql: "UPDATE folder SET parentId = NULL WHERE parentId IS NOT NULL")
         }
 
+        // Previews used to include table cells ("| | |"). Work them out again for saved notes.
+        migrator.registerMigration("v3-refresh-previews") { db in
+            for var note in try Note.fetchAll(db) {
+                let blocks = try Block.filter(Column("noteId") == note.id).fetchAll(db)
+                let summary = NoteSummary.derive(from: blocks)
+                guard summary.title != note.title || summary.snippet != note.snippet else { continue }
+                note.title = summary.title
+                note.snippet = summary.snippet
+                try note.update(db)
+            }
+        }
+
         return migrator
     }
 }

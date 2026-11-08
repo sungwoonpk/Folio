@@ -100,3 +100,34 @@ final class NoteDocumentTests: XCTestCase {
         XCTAssertEqual(saved?.title, "Shopping")
     }
 }
+
+final class PreviewTests: XCTestCase {
+    func testTablesDoNotLeakIntoTheListPreviewButStayInSearch() async throws {
+        let store = NoteStore(database: try AppDatabase.inMemory())
+        let note = try await store.createNote()
+        var table = TableContent.blank(rows: 2, columns: 2)
+        table.rows[0] = ["name", "price"]
+        let segments: [Segment] = [
+            .text(id: UUID(), "Groceries\n• milk"), .table(id: UUID(), table), .text(id: UUID(), "thanks"),
+        ]
+        try await store.saveNote(id: note.id, blocks: NoteDocument.blocks(from: segments, noteId: note.id))
+
+        let saved = try await store.note(id: note.id)
+        XCTAssertEqual(saved?.title, "Groceries")
+        XCTAssertEqual(saved?.snippet, "milk thanks", "no table cells or | separators in the preview")
+        let found = try await store.search("price")
+        XCTAssertEqual(found.map(\.id), [note.id], "table text is still searchable")
+    }
+
+    func testANoteThatStartsWithATableGetsItsTitleFromTheTextAfter() async throws {
+        let store = NoteStore(database: try AppDatabase.inMemory())
+        let note = try await store.createNote()
+        let segments: [Segment] = [
+            .text(id: UUID(), ""), .table(id: UUID(), .blank()), .text(id: UUID(), "Real title"),
+        ]
+        try await store.saveNote(id: note.id, blocks: NoteDocument.blocks(from: segments, noteId: note.id))
+        let saved = try await store.note(id: note.id)
+        XCTAssertEqual(saved?.title, "Real title")
+        XCTAssertEqual(saved?.snippet, "")
+    }
+}
