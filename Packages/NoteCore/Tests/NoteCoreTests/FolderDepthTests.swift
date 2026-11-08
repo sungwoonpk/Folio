@@ -64,3 +64,27 @@ final class FolderDepthTests: XCTestCase {
         }
     }
 }
+
+final class PreviewMigrationTests: XCTestCase {
+    func testSavedNotesLoseTableCellsFromTheirPreview() throws {
+        let queue = try DatabaseQueue()
+        try AppDatabase.migrator.migrate(queue, upTo: "v2-flat-folders")
+
+        let noteId = UUID()
+        try queue.write { db in
+            try Note(id: noteId, title: "Daddy", snippet: "fesdfsdf | | | Sdfsdfsd").insert(db)
+            try Block(noteId: noteId, kind: .bullet, content: "Daddy", position: 0).insert(db)
+            try Block(noteId: noteId, kind: .bullet, content: "fesdfsdf", position: 1).insert(db)
+            try Block(noteId: noteId, kind: .table, content: " | \n | ", meta: TableContent.blank().encoded(), position: 2).insert(db)
+            try Block(noteId: noteId, kind: .text, content: "Sdfsdfsd", position: 3).insert(db)
+        }
+
+        try AppDatabase.migrator.migrate(queue)
+
+        try queue.read { db in
+            let note = try Note.fetchOne(db, key: noteId)
+            XCTAssertEqual(note?.title, "Daddy")
+            XCTAssertEqual(note?.snippet, "fesdfsdf Sdfsdfsd")
+        }
+    }
+}
