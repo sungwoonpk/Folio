@@ -1,20 +1,16 @@
 import NoteCore
 import SwiftUI
 
-/// Main screen: only folders. Tap one to go inside, where the notes are.
+/// Main screen: only folders, one level. Tap one to go inside, where the notes are.
 struct HomeView: View {
     @Environment(AppModel.self) private var model
     @Environment(Nav.self) private var nav
 
     @State private var showSettings = false
     @State private var showNewFolder = false
-    @State private var newFolderParent: UUID?
     @State private var nameText = ""
     @State private var renaming: Folder?
-    @State private var movingFolder: Folder?
-    @State private var movingPicked = false
     @State private var movingSearchNote: Note?
-    @State private var dropHighlight: String?
 
     private var folders: [Folder] { model.subfolders(of: nil) }
 
@@ -28,7 +24,12 @@ struct HomeView: View {
         VStack(spacing: 0) {
             Header(title: headerTitle) { actions }
             SearchField(text: $model.query)
-            if model.isSearching { searchList } else { folderList }
+            if model.isSearching {
+                searchList
+            } else {
+                folderList
+                trashButton
+            }
         }
         .background(Theme.paper)
         .toolbar(.hidden, for: .navigationBar)
@@ -40,7 +41,7 @@ struct HomeView: View {
         .onDisappear { model.endSelection() }
         .alert("New Folder", isPresented: $showNewFolder) {
             TextField("Name", text: $nameText)
-            Button("Create") { Task { await model.createFolder(name: nameText, parentId: newFolderParent) } }
+            Button("Create") { Task { await model.createFolder(name: nameText) } }
             Button("Cancel", role: .cancel) {}
         }
         .alert("Rename", isPresented: Binding(get: { renaming != nil }, set: { if !$0 { renaming = nil } })) {
@@ -51,19 +52,9 @@ struct HomeView: View {
             Button("Cancel", role: .cancel) {}
         }
         .sheet(isPresented: $showSettings) { SettingsView() }
-        .sheet(item: $movingFolder) { folder in
-            MovePicker(title: "Move", rootTitle: "Note", excluding: folder.id, current: folder.parentId) { target in
-                Task { await model.moveFolder(folder.id, to: target) }
-            }
-        }
         .sheet(item: $movingSearchNote) { note in
-            MovePicker(title: "Move", allowRoot: false, current: note.folderId) { target in
+            MovePicker(current: note.folderId) { target in
                 Task { await model.moveNote(note.id, to: target) }
-            }
-        }
-        .sheet(isPresented: $movingPicked) {
-            MovePicker(title: "Move", rootTitle: "Note") { target in
-                Task { await model.movePicked(to: target) }
             }
         }
     }
@@ -76,20 +67,19 @@ struct HomeView: View {
             Button(model.allPicked(notes: [], folders: folders) ? "Deselect All" : "Select All") {
                 model.toggleAll(notes: [], folders: folders)
             }
-            IconButton(systemName: "folder", label: "Move") { movingPicked = true }
-                .disabled(model.pickedCount == 0)
             IconButton(systemName: "trash", label: "Delete") { Task { await model.trashPicked() } }
                 .disabled(model.pickedCount == 0)
             Button("Done") { model.endSelection() }
         } else {
-            IconButton(systemName: "folder.badge.plus", label: "New Folder") {
-                newFolderParent = nil
-                nameText = ""
-                showNewFolder = true
-            }
+            IconButton(systemName: "folder.badge.plus", label: "New Folder") { startNewFolder() }
             Button("Edit") { model.selecting = true }
             IconButton(systemName: "gearshape", label: "Settings") { showSettings = true }
         }
+    }
+
+    private func startNewFolder() {
+        nameText = ""
+        showNewFolder = true
     }
 
     // MARK: Lists
@@ -111,11 +101,7 @@ struct HomeView: View {
                 ContentUnavailableView {
                     Label(model.selecting ? "Nothing to Edit" : "No Folders", systemImage: "folder")
                 } actions: {
-                    Button("New Folder") {
-                        newFolderParent = nil
-                        nameText = ""
-                        showNewFolder = true
-                    }
+                    Button("New Folder") { startNewFolder() }
                 }
             }
         }
@@ -150,6 +136,26 @@ struct HomeView: View {
         }
     }
 
+    /// Small and out of the way, at the bottom.
+    private var trashButton: some View {
+        let count = model.trash.folders.count + model.trash.notes.count
+        return Button {
+            nav.path.append(.trash)
+        } label: {
+            HStack(spacing: 5) {
+                Image(systemName: "trash")
+                Text(count > 0 ? "Trash \(count)" : "Trash")
+            }
+            .font(.footnote)
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 8)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .padding(.bottom, 6)
+    }
+
     // MARK: Rows
 
     private func folderRow(_ folder: Folder) -> some View {
@@ -162,30 +168,21 @@ struct HomeView: View {
         } label: {
             FolderCard(
                 title: folder.name, icon: "folder", count: model.noteCount(in: folder.id),
-                picked: model.selecting ? model.pickedFolders.contains(folder.id) : nil,
-                highlighted: dropHighlight == folder.id.uuidString
+                picked: model.selecting ? model.pickedFolders.contains(folder.id) : nil
             )
         }
         .buttonStyle(.plain)
         .cardRow()
-        .draggableItem(ItemRef(kind: .folder, id: folder.id), enabled: !model.selecting)
-        .acceptsItems(into: folder.id, key: folder.id.uuidString, highlight: $dropHighlight)
         .swipeActions(edge: .trailing) {
             Button("Delete", systemImage: "trash", role: .destructive) {
                 Task { await model.trashFolder(folder.id) }
             }
         }
         .contextMenu {
-            Button("New Folder", systemImage: "folder.badge.plus") {
-                newFolderParent = folder.id
-                nameText = ""
-                showNewFolder = true
-            }
             Button("Rename", systemImage: "pencil") {
                 nameText = folder.name
                 renaming = folder
             }
-            Button("Move", systemImage: "folder") { movingFolder = folder }
             Button("Duplicate", systemImage: "plus.square.on.square") {
                 Task { await model.duplicateFolder(folder.id) }
             }

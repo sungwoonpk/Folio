@@ -5,6 +5,7 @@ import SwiftUI
 enum Route: Hashable {
     /// A folder's contents. nil is "Notes", the notes that are not in any folder.
     case folder(UUID?)
+    case trash
 }
 
 /// Column navigation state. We draw our own headers, so we also drive back and sidebar toggles.
@@ -130,93 +131,40 @@ struct NoteRow: View {
     }
 }
 
-/// Pick a destination folder, or the top level.
+/// Pick a folder to move notes into. Folders are one level, so this is a flat list.
 struct MovePicker: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
 
-    let title: String
-    /// Name of the top-level choice: "Notes" for notes, "Note" for folders.
-    var rootTitle: String = "Notes"
-    /// Notes always live in a folder, so only folders get a top-level choice.
-    var allowRoot = true
-    var excluding: UUID?
     var current: UUID?
-    let onPick: (UUID?) -> Void
+    let onPick: (UUID) -> Void
 
     var body: some View {
         NavigationStack {
-            List {
-                if allowRoot { row(rootTitle, systemImage: "house", depth: 0, target: nil) }
-                ForEach(model.moveTargets(excluding: excluding), id: \.folder.id) { item in
-                    row(item.folder.name, systemImage: "folder", depth: item.depth + 1, target: item.folder.id)
+            List(model.folders) { folder in
+                Button {
+                    onPick(folder.id)
+                    dismiss()
+                } label: {
+                    HStack {
+                        Label(folder.name, systemImage: "folder").font(Theme.serifBody)
+                        Spacer()
+                        if folder.id == current { Image(systemName: "checkmark").foregroundStyle(Theme.accent) }
+                    }
                 }
+                .foregroundStyle(.primary)
             }
             .listStyle(.plain)
-            .navigationTitle(title)
+            .overlay {
+                if model.folders.isEmpty { ContentUnavailableView("No Folders", systemImage: "folder") }
+            }
+            .navigationTitle("Move")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
             }
         }
         .presentationDetents([.medium, .large])
-    }
-
-    private func row(_ name: String, systemImage: String, depth: Int, target: UUID?) -> some View {
-        Button {
-            onPick(target)
-            dismiss()
-        } label: {
-            HStack {
-                Label(name, systemImage: systemImage).font(Theme.serifBody)
-                Spacer()
-                if target == current { Image(systemName: "checkmark").foregroundStyle(Theme.accent) }
-            }
-            .padding(.leading, CGFloat(depth) * 18)
-        }
-        .foregroundStyle(.primary)
-    }
-}
-
-/// Accepts dragged notes and folders and moves them into `folderId` (nil = top level).
-struct ItemDrop: ViewModifier {
-    let folderId: UUID?
-    let key: String
-    let enabled: Bool
-    @Binding var highlight: String?
-    @Environment(AppModel.self) private var model
-
-    func body(content: Content) -> some View {
-        if enabled {
-            content.dropDestination(for: ItemRef.self) { items, _ in
-                Task { await model.drop(items, onto: folderId) }
-                return true
-            } isTargeted: { targeted in
-                if targeted {
-                    highlight = key
-                } else if highlight == key {
-                    highlight = nil
-                }
-            }
-        } else {
-            content
-        }
-    }
-}
-
-extension View {
-    func acceptsItems(
-        into folderId: UUID?, key: String, enabled: Bool = true, highlight: Binding<String?>
-    ) -> some View {
-        modifier(ItemDrop(folderId: folderId, key: key, enabled: enabled, highlight: highlight))
-    }
-}
-
-extension View {
-    /// Drag source that switches off while editing, so it does not fight the reorder handles.
-    @ViewBuilder
-    func draggableItem(_ item: ItemRef, enabled: Bool) -> some View {
-        if enabled { draggable(item) } else { self }
     }
 }
 

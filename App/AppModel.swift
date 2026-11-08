@@ -1,20 +1,7 @@
-import CoreTransferable
 import Foundation
 import NoteCore
 import Observation
 import SwiftUI
-import UniformTypeIdentifiers
-
-/// What gets dragged between rows.
-struct ItemRef: Codable, Hashable, Transferable {
-    enum Kind: String, Codable { case note, folder }
-    var kind: Kind
-    var id: UUID
-
-    static var transferRepresentation: some TransferRepresentation {
-        CodableRepresentation(contentType: .json)
-    }
-}
 
 @MainActor @Observable
 final class AppModel {
@@ -110,10 +97,10 @@ final class AppModel {
 
     // MARK: Folder actions
 
-    func createFolder(name: String, parentId: UUID?) async {
+    func createFolder(name: String) async {
         let trimmed = name.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty else { return }
-        _ = try? await store.createFolder(name: trimmed, parentId: parentId)
+        _ = try? await store.createFolder(name: trimmed)
         await reloadAll()
     }
 
@@ -147,11 +134,6 @@ final class AppModel {
         try? await store.reorderFolders(ordered.map(\.id))
     }
 
-    func moveFolder(_ id: UUID, to parentId: UUID?) async {
-        try? await store.moveFolder(id: id, to: parentId)
-        await reloadAll()
-    }
-
     func duplicateFolder(_ id: UUID) async {
         _ = try? await store.duplicateFolder(id: id)
         await reloadAll()
@@ -172,7 +154,7 @@ final class AppModel {
         selectedNoteId = note.id
     }
 
-    func moveNote(_ id: UUID, to folderId: UUID?) async {
+    func moveNote(_ id: UUID, to folderId: UUID) async {
         try? await store.moveNote(id: id, to: folderId)
         await reloadAll()
     }
@@ -201,22 +183,6 @@ final class AppModel {
         try? await store.purgeNote(id: id)
         if selectedNoteId == id { selectedNoteId = nil }
         await reloadNotes()
-    }
-
-    // MARK: Drag and drop
-
-    /// Drop onto a folder moves into it. Drop with folderId nil moves to the top level.
-    func drop(_ items: [ItemRef], onto folderId: UUID?) async {
-        for item in items {
-            switch item.kind {
-            case .note:
-                try? await store.moveNote(id: item.id, to: folderId)
-            case .folder:
-                guard item.id != folderId else { continue }
-                try? await store.moveFolder(id: item.id, to: folderId)
-            }
-        }
-        await reloadAll()
     }
 
     // MARK: Multi-select
@@ -261,8 +227,7 @@ final class AppModel {
         await reloadAll()
     }
 
-    func movePicked(to folderId: UUID?) async {
-        for id in pickedFolders where id != folderId { try? await store.moveFolder(id: id, to: folderId) }
+    func movePicked(to folderId: UUID) async {
         for id in pickedNotes { try? await store.moveNote(id: id, to: folderId) }
         endSelection()
         await reloadAll()
@@ -296,31 +261,5 @@ final class AppModel {
             }
         }
         await reloadTrash()
-    }
-
-    // MARK: Helpers
-
-    /// Folders a folder or note can be moved into, as indented rows.
-    func moveTargets(excluding folderId: UUID? = nil) -> [(folder: Folder, depth: Int)] {
-        func walk(_ nodes: [FolderNode]?, depth: Int) -> [(Folder, Int)] {
-            (nodes ?? []).flatMap { node -> [(Folder, Int)] in
-                if node.id == folderId { return [] }
-                return [(node.folder, depth)] + walk(node.children, depth: depth + 1)
-            }
-        }
-        return walk(FolderNode.tree(folders), depth: 0).map { (folder: $0.0, depth: $0.1) }
-    }
-}
-
-struct FolderNode: Identifiable, Hashable {
-    let folder: Folder
-    var children: [FolderNode]?
-    var id: UUID { folder.id }
-
-    static func tree(_ folders: [Folder], parent: UUID? = nil) -> [FolderNode]? {
-        let nodes = folders.filter { $0.parentId == parent }.map {
-            FolderNode(folder: $0, children: tree(folders, parent: $0.id))
-        }
-        return nodes.isEmpty ? nil : nodes
     }
 }
