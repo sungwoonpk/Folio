@@ -14,6 +14,11 @@ public enum NoteScope: Sendable, Equatable {
 public struct TrashContents: Sendable, Equatable {
     public var folders: [Folder]
     public var notes: [Note]
+
+    public init(folders: [Folder], notes: [Note]) {
+        self.folders = folders
+        self.notes = notes
+    }
 }
 
 /// All persistence operations the UI needs. Every method runs in one transaction.
