@@ -13,6 +13,7 @@ struct EditorView: View {
     @State private var lastSaved: [Segment] = []
     @State private var loaded = false
     @State private var loadFailed = false
+    @State private var loading = false
     @State private var saveTask: Task<Void, Never>?
     @State private var focus: UUID?
     @State private var controller = EditorController()
@@ -57,7 +58,8 @@ struct EditorView: View {
         }
         .background(Theme.paper)
         .toolbar(.hidden, for: .navigationBar)
-        .task(id: noteId) { await load() }
+        // Not .task: SwiftUI cancels it during navigation and does not restart it, which left notes unloaded.
+        .onAppear { Task { await load() } }
         .onChange(of: segments) {
             guard loaded, segments != lastSaved else { return }
             saveTask?.cancel()
@@ -154,21 +156,23 @@ struct EditorView: View {
 
     // MARK: Loading
 
-    /// A failed or cancelled read must never turn into an empty note.
-    /// It keeps the editor locked and tries again; only a successful read unlocks it.
+    /// A failed read must never turn into an empty note.
+    /// The editor stays locked and tries again; only a successful read unlocks it.
+    /// Runs as its own task, so leaving and re-entering the screen cannot cancel it half way.
     private func load() async {
+        guard !loaded, !loading else { return }
+        loading = true
         loadFailed = false
+        defer { loading = false }
         for attempt in 0..<4 {
             do {
                 let blocks = try await model.store.blocks(noteId: noteId)
-                if Task.isCancelled { return }
                 segments = NoteDocument.segments(from: blocks)
                 lastSaved = segments
                 loaded = true
                 if NoteDocument.isBlank(segments) { focus = segments.first?.id }
                 return
             } catch {
-                if Task.isCancelled { return }
                 try? await Task.sleep(for: .milliseconds(150 * (attempt + 1)))
             }
         }

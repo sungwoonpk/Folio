@@ -98,6 +98,7 @@ struct SearchField: View {
             if !text.isEmpty {
                 Button { text = "" } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary) }
                     .buttonStyle(.plain)
+                    .accessibilityLabel("Clear")
             }
         }
         .padding(.horizontal, 12)
