@@ -64,11 +64,11 @@ public enum Segment: Equatable, Identifiable, Sendable {
 
 /// Converts between stored blocks and editor segments.
 /// A bullet line is shown as "• text" in the editor and stored as a bullet block without the prefix.
-/// A checklist line is "☐ text" or "☑ text" and stored as a checklist block, checked ones with meta "done".
+/// A checklist line is "○ text" or "◉ text" and stored as a checklist block, checked ones with meta "done".
 public enum NoteDocument {
     public static let bulletPrefix = "• "
-    public static let uncheckedPrefix = "☐ "
-    public static let checkedPrefix = "☑ "
+    public static let uncheckedPrefix = "○ "
+    public static let checkedPrefix = "◉ "
     /// Marks a checked checklist block.
     public static let doneMeta = "done"
 

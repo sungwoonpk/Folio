@@ -135,7 +135,7 @@ final class PreviewTests: XCTestCase {
 final class ChecklistDocumentTests: XCTestCase {
     func testChecklistRoundTripKeepsCheckedState() {
         let noteId = UUID()
-        let segments: [Segment] = [.text(id: UUID(), "Todo\n☐ milk\n☑ eggs\n• plain bullet\nnormal")]
+        let segments: [Segment] = [.text(id: UUID(), "Todo\n○ milk\n◉ eggs\n• plain bullet\nnormal")]
         let blocks = NoteDocument.blocks(from: segments, noteId: noteId)
 
         XCTAssertEqual(blocks.map(\.kind), [.text, .checklist, .checklist, .bullet, .text])
@@ -144,18 +144,18 @@ final class ChecklistDocumentTests: XCTestCase {
         XCTAssertEqual(blocks[2].meta, "done", "checked is stored as done")
 
         guard case .text(_, let text)? = NoteDocument.segments(from: blocks).first else { return XCTFail("no text") }
-        XCTAssertEqual(text, "Todo\n☐ milk\n☑ eggs\n• plain bullet\nnormal")
+        XCTAssertEqual(text, "Todo\n○ milk\n◉ eggs\n• plain bullet\nnormal")
     }
 
     func testChecklistTextIsSearchableAndKeepsTheMarkerOutOfPreview() async throws {
         let store = NoteStore(database: try AppDatabase.inMemory())
         let note = try await store.createNote()
-        let segments: [Segment] = [.text(id: UUID(), "Shopping\n☐ milk\n☑ eggs")]
+        let segments: [Segment] = [.text(id: UUID(), "Shopping\n○ milk\n◉ eggs")]
         try await store.saveNote(id: note.id, blocks: NoteDocument.blocks(from: segments, noteId: note.id))
 
         let saved = try await store.note(id: note.id)
         XCTAssertEqual(saved?.title, "Shopping")
-        XCTAssertEqual(saved?.snippet, "milk eggs", "no ☐ or ☑ in the preview")
+        XCTAssertEqual(saved?.snippet, "milk eggs", "no ○ or ◉ in the preview")
         let found = try await store.search("eggs")
         XCTAssertEqual(found.map(\.id), [note.id])
     }
