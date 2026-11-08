@@ -29,8 +29,6 @@ Other note apps kept getting in the way.
 
 <p align="center"><img src="docs/demo.gif" width="260" alt="A tour of the app"></p>
 
-A 35 second tour at double speed: make folders, write bullets, a checklist and a table, search, switch to dark mode, delete a note and bring it back. [MP4 version](docs/demo.mp4).
-
 ## Screenshots
 
 | Folders | Notes by date | Checklist | Table | Dark |
