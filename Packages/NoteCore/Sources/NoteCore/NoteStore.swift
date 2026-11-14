@@ -52,7 +52,7 @@ public final class NoteStore: Sendable {
         return try await writer.write { [maxFolderDepth] db -> Folder in
             if let parentId, try Self.depth(db, of: parentId) + 1 > maxFolderDepth { throw NoteStoreError.tooDeep }
             // sortOrder 0 means automatic: most recently modified first.
-            var folder = Folder(name: name, parentId: parentId)
+            let folder = Folder(name: name, parentId: parentId)
             try folder.insert(db)
             return folder
         }
@@ -169,9 +169,9 @@ public final class NoteStore: Sendable {
     @discardableResult
     public func createNote(folderId: UUID? = nil) async throws -> Note {
         try await writer.write { db -> Note in
-            var note = Note(folderId: folderId)
+            let note = Note(folderId: folderId)
             try note.insert(db)
-            var block = Block(noteId: note.id)
+            let block = Block(noteId: note.id)
             try block.insert(db)
             try Self.touchFolders(db, from: folderId)
             return note
@@ -202,7 +202,7 @@ public final class NoteStore: Sendable {
 
     public func setPinned(id: UUID, _ pinned: Bool) async throws {
         try await writer.write { db in
-            try Note.filter(Column("id") == id).updateAll(db, Column("pinned").set(to: pinned))
+            _ = try Note.filter(Column("id") == id).updateAll(db, Column("pinned").set(to: pinned))
         }
     }
 

@@ -336,7 +336,7 @@ final class NoteStoreTests: XCTestCase {
         let store = try makeStore()
         try await store.database.writer.write { db in
             for i in 0..<10_000 {
-                var note = Note(title: "Note \(i)", snippet: "")
+                let note = Note(title: "Note \(i)", snippet: "")
                 try note.insert(db)
                 try db.execute(
                     sql: "INSERT INTO noteSearch(noteId, title, body) VALUES (?, ?, ?)",
