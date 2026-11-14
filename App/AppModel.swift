@@ -118,6 +118,11 @@ final class AppModel {
         deleted = (try? await store.deletedNotes()) ?? []
     }
 
+    /// Removes notes that have sat in Recently Deleted for 30 days. Runs when the app opens.
+    func purgeExpiredTrash() async {
+        _ = try? await store.purgeExpiredNotes()
+    }
+
     // MARK: Folder actions
 
     /// Returns the new folder's id, or nil if the name was empty.

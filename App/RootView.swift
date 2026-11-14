@@ -31,6 +31,9 @@ struct RootView: View {
         }
         .navigationSplitViewStyle(.balanced)
         .environment(nav)
-        .task { await model.reloadAll() }
+        .task {
+            await model.purgeExpiredTrash()
+            await model.reloadAll()
+        }
     }
 }

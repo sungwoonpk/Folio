@@ -8,6 +8,7 @@ struct EditorView: View {
     @Environment(AppModel.self) private var model
     @Environment(Nav.self) private var nav
     @Environment(\.horizontalSizeClass) private var sizeClass
+    @Environment(\.scenePhase) private var scenePhase
 
     @State private var segments: [Segment] = [.text(id: UUID(), "")]
     @State private var lastSaved: [Segment] = []
@@ -68,6 +69,13 @@ struct EditorView: View {
                 do { try await Task.sleep(for: .milliseconds(400)) } catch { return }
                 await save()
             }
+        }
+        // Leaving the app: do not wait for the typing pause, save what is on screen now.
+        .onChange(of: scenePhase) {
+            guard scenePhase != .active else { return }
+            saveTask?.cancel()
+            guard loaded, segments != lastSaved else { return }
+            Task { await save() }
         }
         .onDisappear {
             saveTask?.cancel()

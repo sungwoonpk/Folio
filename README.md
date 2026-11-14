@@ -22,7 +22,7 @@ I built Folio because I wanted to use it. The note apps I tried kept getting in 
 - **First line is the title.** Bold and larger. Everything below is the note.
 - **Bullets, checklists, tables.** Return continues a list, Return on an empty item ends it, tap a circle to check it off.
 - **Forgiving search.** `est`, `3`, `test` and `TEST` all find `Test3`. Folders and notes.
-- **Recently Deleted.** Deleted notes wait here. Restoring asks which folder, or lets you make one.
+- **Recently Deleted.** Deleted notes wait here for 30 days. Restoring asks which folder, or lets you make one.
 - **Edit mode.** Select many to delete or move, drag folders into order.
 - **Light or dark.** One icon flips between them. The first launch follows the system setting.
 - **Autosave.** A note opened and left empty is removed.
@@ -68,69 +68,19 @@ open Folio.xcodeproj
 
 Pick an iOS simulator and press Run. The only dependency, [GRDB](https://github.com/groue/GRDB.swift), is fetched on first build.
 
-## Tests
+## Check it
 
 ```bash
-# Logic: storage, search, trash, documents. No simulator needed.
-# GitHub Actions runs this and a simulator build on every push and pull request
 cd Packages/NoteCore && swift test
-
-# The real app, driven through its screens
-xcodebuild -project Folio.xcodeproj -scheme Folio \
-  -destination 'platform=iOS Simulator,name=<an installed simulator>' test
 ```
 
-- **Unit tests:** storage, search, odd queries, huge notes, 25 saves at once, midnight boundaries, migrations.
-- **UI tests:** every main flow plus awkward ones: blank and very long names, empty notes, deleting every folder, restoring with no folder left, closing and reopening the app.
-- **Isolation:** UI tests launch with `-ui-testing`: in-memory database, the system light/dark mode. `-ui-testing-db <path>` uses a file for tests that relaunch.
-- **Screenshots:** `TEST_RUNNER_SCREENSHOT_DIR=docs/screenshots xcodebuild ... -only-testing:FolioUITests/ScreenshotTests test`
-- **Demo video:** `DemoTests` plays the tour slowly. Run it with `TEST_RUNNER_DEMO=1` while `xcrun simctl io booted recordVideo demo.mp4` records the simulator, then convert with `ffmpeg`.
+That runs the unit tests with no simulator. GitHub Actions runs them and a simulator build on every push and pull request. The UI tests drive the real app, see [testing](docs/testing.md).
 
-## Repo structure
+## Docs
 
-```
-Folio/
-├── App/                       SwiftUI app
-│   ├── FolioApp.swift         Entry point, colors, fonts
-│   ├── RootView.swift         Split view and navigation stack
-│   ├── HomeView.swift         Folders, search, Edit, Recently Deleted button
-│   ├── FolderScreen.swift     One folder's notes, grouped by date
-│   ├── EditorView.swift       Editor: loading, autosave, header buttons
-│   ├── NoteTextView.swift     Text runs: title, bullets, checklists
-│   ├── TableBlockView.swift   Editable table
-│   ├── TrashScreen.swift      Recently Deleted
-│   ├── AppModel.swift         State and actions
-│   └── Components.swift       Header, buttons, rows, folder picker
-├── Packages/NoteCore/         Everything that is not UI (Swift package)
-│   ├── Sources/NoteCore/
-│   │   ├── Models.swift       Folder, Note, Block
-│   │   ├── AppDatabase.swift  SQLite schema and migrations
-│   │   ├── NoteStore.swift    Every read and write
-│   │   ├── NoteDocument.swift Note text <-> blocks
-│   │   ├── NoteGrouping.swift Today, Last 7 Days, months, years
-│   │   └── FolderSearch.swift Folder names, any part, any case
-│   └── Tests/NoteCoreTests/   Unit tests
-├── UITests/                   Tests that drive the real app
-├── docs/                      Screenshots, demo GIF, design decisions
-└── project.yml                XcodeGen project definition
-```
-
-## How it works
-
-- **Two layers.** `NoteCore` has no UI and is tested without a simulator. `App` draws and calls `NoteStore`.
-- **Storage.** SQLite through GRDB. Tables `folder`, `note`, `block` and a search index. Changes ship as numbered migrations, so old data carries forward.
-- **Note content.** A note is blocks: `text`, `bullet`, `checklist` (checked ones marked `done`), `table` (cells as JSON). Title and one-line preview are cached on the note, so lists never load bodies.
-- **Search.** FTS5 with the trigram tokenizer: any part of a word, any case. Under three characters it falls back to a substring scan. Folder names are matched separately.
-- **Editor.** Text runs with tables between them. Each run is a `UITextView` styled as you type. Markers `•` `○` `◉` are what you see and become blocks on save.
-- **Load safety.** The editor stays locked until the note has been read, and retries on failure. A failed read can never become an empty note that overwrites the real one.
-- **Navigation.** `NavigationSplitView` with a `NavigationStack`. System bars are hidden, each screen draws one header so actions sit together at the top right.
-
-## Design decisions
-
-The reasoning is written down in [docs/decisions](docs/decisions): [one-level folders](docs/decisions/0001-one-level-folders.md), [trigram search](docs/decisions/0002-trigram-search.md), [blocks and text runs](docs/decisions/0003-blocks-and-text-runs.md). In short:
-
-- **Folders are one level.** Nested trees get confusing. `NoteCore` enforces it, the UI does not just hide it.
-- **Notes always live in a folder.** No loose pile to lose track of.
-- **A deleted folder is not kept.** Only notes are recoverable, they are what holds content.
-- **Local first.** No account, no network. Fast to open, nothing to leak.
-- **Plain markers in the text.** Return, backspace and selection behave as people expect, and it still saves as real blocks.
+| Read this | For |
+| --- | --- |
+| [Architecture](docs/architecture.md) | Repo layout, how storage, search and the editor work |
+| [Testing](docs/testing.md) | Unit and UI tests, screenshots and the demo video |
+| [Design decisions](docs/decisions/README.md) | Why folders are one level, why trigram search, and more |
+| [Changelog](CHANGELOG.md) | What changed, release by release |

@@ -55,6 +55,7 @@ struct SelectMark: View {
             .font(.system(size: 20))
             .foregroundStyle(picked ? Theme.accent : Color.secondary)
             .frame(width: 26)
+            .accessibilityLabel(picked ? "Selected" : "Not selected")
     }
 }
 
@@ -120,6 +121,7 @@ struct NoteRow: View {
             HStack(spacing: 6) {
                 if note.pinned {
                     Circle().fill(Theme.accent).frame(width: 6, height: 6)
+                        .accessibilityLabel("Pinned")
                 }
                 Text(note.title.isEmpty ? "New Note" : note.title)
                     .font(.system(.headline, design: .serif))
