@@ -19,6 +19,8 @@ public enum NoteScope: Sendable, Equatable {
 public final class NoteStore: Sendable {
     /// Folder names longer than this are cut.
     public static let maxFolderNameLength = 120
+    /// Deleted notes wait in Recently Deleted this many days, then they are removed for good.
+    public static let trashRetentionDays = 30
 
     public let database: AppDatabase
     /// How many folder levels are allowed. 1 means folders only at the top, none inside folders.
@@ -263,6 +265,17 @@ public final class NoteStore: Sendable {
     public func emptyTrash() async throws {
         try await writer.write { db in
             _ = try Note.filter(Column("deletedAt") != nil).deleteAll(db) // deleted notes are not indexed
+        }
+    }
+
+    /// Removes notes that have been in Recently Deleted for `trashRetentionDays` or longer.
+    /// Returns how many were removed. A note that was never deleted is never touched.
+    @discardableResult
+    public func purgeExpiredNotes(now: Date = Date()) async throws -> Int {
+        let cutoff = now.addingTimeInterval(-Double(Self.trashRetentionDays) * 86_400)
+        return try await writer.write { db in
+            // Deleted notes are not indexed, so only the note rows go (blocks cascade).
+            try Note.filter(Column("deletedAt") != nil && Column("deletedAt") <= cutoff).deleteAll(db)
         }
     }
 
