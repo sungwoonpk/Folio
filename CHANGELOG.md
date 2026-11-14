@@ -2,6 +2,23 @@
 
 All notable changes to this project. The format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [Unreleased]
+
+### Added
+- Recently Deleted removes notes for good after 30 days, and the screen says so (decision record 4)
+- VoiceOver labels for the selection marks, pinned notes and table cells
+- `docs/architecture.md` and `docs/testing.md`
+
+### Changed
+- The app is called Folio, renamed from Notes
+- An open note is saved the moment the app leaves the foreground, without waiting for the typing pause
+- The README is shorter: layout, internals and test details moved into `docs/`
+- `Package.resolved` is committed, so tests and CI use the same GRDB version
+- Every generated `*.xcodeproj` is ignored, and the leftover `Notes.xcodeproj` stub is gone
+
+### Fixed
+- Compiler warnings in `NoteCore`
+
 ## [0.1.0] - 2026-11-08
 
 First working version.
