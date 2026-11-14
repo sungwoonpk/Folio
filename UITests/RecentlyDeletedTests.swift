@@ -6,6 +6,17 @@ final class RecentlyDeletedTests: XCTestCase {
         app.buttons.matching(identifier: "chevron.left").firstMatch.tap()
     }
 
+    func testRecentlyDeletedSaysHowLongNotesStay() throws {
+        let app = launchApp()
+        let recently = app.buttons.matching(NSPredicate(format: "label CONTAINS 'Recently Deleted'")).firstMatch
+        XCTAssertTrue(recently.waitForExistence(timeout: 3))
+        recently.tap()
+        XCTAssertTrue(
+            app.staticTexts["Notes are removed for good after 30 days."].waitForExistence(timeout: 3),
+            "the screen says when deleted notes go away"
+        )
+    }
+
     func testDeletedFolderLeavesItsNotesAndRestoreAsksForAFolder() throws {
         continueAfterFailure = false
         let app = launchApp()

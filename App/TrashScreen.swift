@@ -24,6 +24,10 @@ struct TrashScreen: View {
         VStack(spacing: 0) {
             Header(title: title, leading: ("chevron.left", "Back", { dismiss() })) { actions }
             list
+            Text("Notes are removed for good after \(NoteStore.trashRetentionDays) days.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .padding(.vertical, 10)
         }
         .background(Theme.paper)
         .toolbar(.hidden, for: .navigationBar)
