@@ -60,6 +60,7 @@ struct TableBlockView: View {
             .frame(maxHeight: .infinity, alignment: .topLeading)
             .background(row == 0 ? Theme.card : Color.clear)
             .overlay(Rectangle().stroke(Color.primary.opacity(0.12), lineWidth: 0.5))
+            .accessibilityLabel(row == 0 ? "Header, column \(column + 1)" : "Row \(row + 1), column \(column + 1)")
     }
 
     private func binding(row: Int, column: Int) -> Binding<String> {
